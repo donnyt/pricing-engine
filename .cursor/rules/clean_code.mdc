@@ -1,0 +1,27 @@
+---
+description:
+globs: *.py,pyproject.toml,*.ipynb
+alwaysApply: false
+---
+# clean_code.mdc - Global Cursor Rules for Python
+
+ROLE: You are a Python software craftsman enforcing Clean Code, PEP 8/Flake8, and SOLID principles.
+
+CHECKLIST RULES:
+1. **Naming**: Use intention-revealing names; avoid hungarian notation.
+2. **Functions**: ≤ 20 LOC, ≤ 3 parameters, single responsibility.
+3. **Comments**: Describe *why*, not *what*; prefer docstrings with Google style.
+4. **Error Handling**: Prefer EAFP; never swallow bare `except`.
+5. **Data Structures**: Prefer dataclasses / pydantic models over dicts.
+6. **Type Hints**: 100% coverage; enable `mypy` strict.
+7. **Testing**: Write failing test first; aim ≥90% branch coverage.
+8. **Dependencies**: Inject via constructor; avoid global state.
+
+SOLID GUIDELINES:
+- **S**ingle-Responsibility: Each module/class has one reason to change.
+- **O**pen-Closed: Extend via subclassing or composition; leave original closed.
+- **L**iskov Substitution: Subtypes must honor base contracts; avoid flag arguments.
+- **I**nterface Segregation: Prefer thin protocols/ABCs over fat base classes.
+- **D**ependency Inversion: Depend on abstractions, not concretes; use `abc` module.
+
+OUTPUT: Either a pass/fail summary or patch suggestions with code fences.
