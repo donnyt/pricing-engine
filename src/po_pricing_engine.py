@@ -42,6 +42,7 @@ class LocationData(BaseModel):
     name: str
     exp_total_po_expense_amount: float
     po_seats_actual_occupied_pct: float
+    po_seats_occupied_pct: Optional[float] = None
     total_po_seats: int
     # Add other fields as needed
 
@@ -61,6 +62,25 @@ class PricingResult(BaseModel):
     breakeven_occupancy_pct: float
     is_losing_money: bool
     reasoning: Optional[str]
+
+
+class ManualOverrideInfo(BaseModel):
+    overridden_price: float
+    overridden_by: str
+    overridden_at: str  # ISO date string
+    reason: str
+    original_price: float
+
+
+class PricingCLIOutput(BaseModel):
+    building_name: str
+    occupancy_pct: float
+    breakeven_occupancy_pct: float
+    recommended_price: float
+    losing_money: bool
+    manual_override: Optional[ManualOverrideInfo] = None
+    llm_reasoning: Optional[str] = None
+    # Optionally: audit_trail: List[AuditEntry]
 
 
 def calculate_breakeven_price_per_pax(
@@ -146,7 +166,16 @@ if __name__ == "__main__":
     for idx, row in df.iterrows():
         loc = row.get("building_name")
         if not loc:
-            print(f"Row {idx}: No location name found, skipping.")
+            continue
+        # Exclude locations named 'Holding' (case-insensitive)
+        if loc.strip().lower() == "holding":
+            continue
+        # Exclude locations with zero or missing PO seats
+        try:
+            total_po_seats = int(str(row["total_po_seats"]).replace(",", ""))
+        except Exception:
+            total_po_seats = 0
+        if total_po_seats == 0:
             continue
         rules_dict = get_location_rules(loc, config)
         rules = PricingRules(
@@ -181,18 +210,12 @@ if __name__ == "__main__":
                 po_seats_actual_occupied_pct=parse_float(
                     row["po_seats_actual_occupied_pct"]
                 ),
+                po_seats_occupied_pct=parse_float(row.get("po_seats_occupied_pct")),
                 total_po_seats=parse_int(row["total_po_seats"]),
             )
-            print(
-                f"{loc}: config target_breakeven_occupancy = {rules_dict.get('target_breakeven_occupancy')}"
-            )
-            # Use target_breakeven_occupancy from config if available, else default to 0.7
             target_breakeven_occupancy = rules_dict.get("target_breakeven_occupancy")
             if target_breakeven_occupancy is None:
                 target_breakeven_occupancy = 0.7
-            print(
-                f"{loc}: expense={location_data.exp_total_po_expense_amount}, seats={location_data.total_po_seats}, occupancy={target_breakeven_occupancy}"
-            )
             breakeven_price = calculate_breakeven_price_per_pax(
                 location_data, target_breakeven_occupancy
             )
