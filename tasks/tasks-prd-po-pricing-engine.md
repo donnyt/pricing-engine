@@ -21,8 +21,8 @@
 ## Tasks
 
 - [ ] 1.0 Set Up Project Structure and Integrations
-  - [ ] 1.1 Create the `src/` and `tests/` directories if they do not exist.
-  - [ ] 1.2 Set up a Python virtual environment and requirements file.
+  - [x] 1.1 Create the `src/` and `tests/` directories if they do not exist.
+  - [x] 1.2 Set up a Python virtual environment and requirements file.
   - [ ] 1.3 Implement Zoho Analytics integration for data retrieval.
   - [ ] 1.4 Configure project for microservices framework (e.g., FastAPI or Flask).
 - [ ] 2.0 Implement Core Pricing Calculation Engine
