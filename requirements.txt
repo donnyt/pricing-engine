@@ -1,3 +1,7 @@
 fastapi
 requests
 pytest
+pandas
+uvicorn
+pyyaml
+pydantic

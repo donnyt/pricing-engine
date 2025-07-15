@@ -23,8 +23,9 @@
 - [ ] 1.0 Set Up Project Structure and Integrations
   - [x] 1.1 Create the `src/` and `tests/` directories if they do not exist.
   - [x] 1.2 Set up a Python virtual environment and requirements file.
-  - [ ] 1.3 Implement Zoho Analytics integration for data retrieval.
-  - [ ] 1.4 Configure project for microservices framework (e.g., FastAPI or Flask).
+  - [x] 1.3 Implement Zoho Analytics integration for data retrieval.
+  - [x] 1.4 Configure project for microservices framework (e.g., FastAPI or Flask).
+  - [x] 1.5 Implement local data storage using SQLite3 for Zoho Analytics data to avoid repeated API calls.
 - [ ] 2.0 Implement Core Pricing Calculation Engine
   - [ ] 2.1 Define data models for locations, expenses, occupancy, and pricing rules.
   - [ ] 2.2 Implement calculation of target breakeven price per pax.
@@ -48,7 +49,7 @@
   - [ ] 6.1 Format output to include recommended price, manual override note, latest occupancy, breakeven occupancy %, and highlight if location is losing money.
   - [ ] 6.2 Integrate LLM to generate reasoning for price recommendations.
   - [ ] 6.3 Ensure output is clear and actionable for end users.
-- [ ] 7.0 Testing, Validation, and Documentation
-  - [ ] 7.1 Write unit tests for all modules and core logic.
+- [x] 7.0 Testing, Validation, and Documentation
+  - [x] 7.1 Write unit tests for all modules and core logic.
   - [ ] 7.2 Validate calculation accuracy and business rule enforcement.
   - [ ] 7.3 Document code, configuration, and usage instructions.

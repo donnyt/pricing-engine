@@ -55,10 +55,11 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
     3. Obtain the Base price per pax.
     4. Apply a margin of safety (e.g., 50%) to the Base price per pax to get the calculated recommended price.
     5. Apply business rules for max and min price: if the calculated recommended price is outside the range, use the max or min price as appropriate.
-16. The engine must allow a pricing analyst to manually override the calculated recommended price for any location. When this occurs, the system must:
+16. The engine must allow saving data retrieved from Zoho Analytics locally in a SQLite3 database for further processing, so repeated API calls are not required.
+17. The engine must allow a pricing analyst to manually override the calculated recommended price for any location. When this occurs, the system must:
     - Record the override, including the name of the person, the date, and the reasoning for the override.
     - Flag the output to indicate that the price has been manually overridden, and display the original calculated recommended price for reference.
-17. The output for each location must include:
+18. The output for each location must include:
     - The recommended price (with a note if it is a manual override, including who, when, and why)
     - The latest occupancy
     - The breakeven occupancy percentage
@@ -76,6 +77,7 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
 - CLI and API endpoints should be simple and well-documented for use by sales, ops, and other systems.
 - If a PO has windows, a premium can be applied as an additional business rule.
 - The system should be modular to allow future expansion (e.g., other product types).
+- The system should support saving and loading Zoho Analytics data locally using SQLite3 to minimize unnecessary API calls and improve performance.
 
 ## 7. Technical Considerations (Optional)
 

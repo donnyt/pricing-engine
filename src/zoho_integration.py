@@ -2,7 +2,9 @@ import os
 import requests
 import csv
 import io
-from typing import List, Optional
+from typing import List, Optional, Type, Any
+from dataclasses import dataclass, make_dataclass, fields
+import re
 
 
 def get_zoho_access_token(
@@ -47,34 +49,77 @@ def fetch_zoho_analytics_data(
     return None
 
 
-def fetch_pnl_sms_by_month(year: int, month: int) -> Optional[List[List[str]]]:
+def sanitize_field_name(name: str) -> str:
+    """Sanitize CSV header to be a valid Python identifier."""
+    # Remove BOM if present
+    name = name.lstrip("\ufeff")
+    # Replace spaces and invalid chars with underscore, remove leading digits
+    name = re.sub(r"\W|^(?=\d)", "_", name)
+    return name
+
+
+def make_dynamic_dataclass(class_name: str, field_names: List[str]) -> Type[Any]:
+    """Dynamically create a dataclass with the given field names (all as Optional[str])."""
+    sanitized = [sanitize_field_name(f) for f in field_names]
+    return make_dataclass(class_name, [(f, Optional[str], None) for f in sanitized])
+
+
+def fetch_zoho_table_as_dataclasses(
+    table_name: str,
+    endpoint_path: str,
+    criteria: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+    refresh_token: Optional[str] = None,
+) -> List[Any]:
     """
-    Fetch the pnl_sms_by_month report for a specific year and month from Zoho Analytics.
+    General-purpose function to fetch any Zoho Analytics table as a list of dataclass instances.
     Args:
-        year: The year to filter on.
-        month: The month to filter on.
+        table_name: Name for the dataclass (e.g., 'PnlSmsByMonthRow').
+        endpoint_path: API endpoint path for the table.
+        criteria: Optional filter criteria.
+        client_id, client_secret, refresh_token: Optional Zoho credentials (fallback to env).
     Returns:
-        List of rows (including header) or None if error.
+        List of dataclass instances (one per row).
     """
-    client_id = os.environ.get("ZOHO_CLIENT_ID")
-    client_secret = os.environ.get("ZOHO_CLIENT_SECRET")
-    refresh_token = os.environ.get("ZOHO_REFRESH_TOKEN")
+    # Get credentials from args or environment
+    client_id = client_id or os.environ.get("ZOHO_CLIENT_ID")
+    client_secret = client_secret or os.environ.get("ZOHO_CLIENT_SECRET")
+    refresh_token = refresh_token or os.environ.get("ZOHO_REFRESH_TOKEN")
     if not all([client_id, client_secret, refresh_token]):
-        raise EnvironmentError("Missing Zoho credentials in environment variables.")
+        raise EnvironmentError(
+            "Missing Zoho credentials in environment variables or arguments."
+        )
     access_token = get_zoho_access_token(client_id, client_secret, refresh_token)
+    rows = fetch_zoho_analytics_data(access_token, endpoint_path, criteria)
+    if not rows or len(rows) < 2:
+        return []
+    header, *data_rows = rows
+    sanitized_header = [sanitize_field_name(h) for h in header]
+    DataRow = make_dynamic_dataclass(table_name, header)
+    return [DataRow(**dict(zip(sanitized_header, row))) for row in data_rows]
+
+
+def fetch_pnl_sms_by_month_dataclasses(year: int, month: int) -> List[Any]:
+    """
+    Fetch pnl_sms_by_month as dataclass instances for a specific year and month.
+    """
     endpoint_path = "/OKR/pnl_sms_by_month"
     criteria = f'("year"={year} and "month"={month})'
-    return fetch_zoho_analytics_data(access_token, endpoint_path, criteria)
+    return fetch_zoho_table_as_dataclasses(
+        table_name="PnlSmsByMonthRow",
+        endpoint_path=endpoint_path,
+        criteria=criteria,
+    )
 
 
 if __name__ == "__main__":
-    # Quick test: fetch May 2025 pnl_sms_by_month report and print first 5 rows
+    # Quick test: fetch May 2025 pnl_sms_by_month report and print first 2 rows as dataclasses
     try:
-        rows = fetch_pnl_sms_by_month(2025, 5)
-        if rows:
-            for row in rows[:5]:
-                print(row)
-        else:
+        rows = fetch_pnl_sms_by_month_dataclasses(2025, 5)
+        for row in rows[:2]:
+            print(row)
+        if not rows:
             print("No data returned.")
     except Exception as e:
         print(f"Test failed: {e}")
