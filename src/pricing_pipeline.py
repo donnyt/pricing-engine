@@ -27,6 +27,7 @@ def run_pricing_pipeline(
 
     outputs: List[PricingCLIOutput] = []
     if input_df.empty:
+        print("DEBUG: Input DataFrame is empty.")
         return outputs
     # Ensure year and month columns are present and sorted
     if "year" not in input_df.columns or "month" not in input_df.columns:
@@ -37,6 +38,12 @@ def run_pricing_pipeline(
     print(
         "DEBUG: Unique building names in DataFrame:", input_df["building_name"].unique()
     )
+    # Debug: Show dtypes and sample rows before filtering
+    print("DEBUG: DataFrame dtypes before filtering:\n", input_df.dtypes)
+    print("DEBUG: Sample rows before filtering:\n", input_df.head())
+    # Ensure year and month columns are int for filtering
+    input_df["year"] = input_df["year"].astype(int)
+    input_df["month"] = input_df["month"].astype(int)
     # Default to current year/month if not provided
     now = datetime.datetime.now()
     if target_year is None:
@@ -48,6 +55,8 @@ def run_pricing_pipeline(
     grouped = grouped[
         (grouped["year"] == target_year) & (grouped["month"] == target_month)
     ]
+    print("DEBUG: Filtered DataFrame for target year/month:")
+    print(grouped[["building_name", "year", "month", "total_po_seats"]])
     calculator = PricingCalculator(config)
     for _, row in grouped.iterrows():
         loc = str(row["building_name"]).strip()
@@ -55,9 +64,14 @@ def run_pricing_pipeline(
         year = row["year"]
         month = row["month"]
         total_po_seats = parse_int(row.get("total_po_seats"))
-        if not loc or str(loc).strip().lower() == "holding":
+        if not loc:
+            print(f"SKIP: Empty location name (row: {row.to_dict()})")
+            continue
+        if str(loc).strip().lower() == "holding":
+            print(f"SKIP: Location '{loc}' is 'Holding'.")
             continue
         if total_po_seats == 0:
+            print(f"SKIP: Location '{loc}' has zero PO seats.")
             continue
         loc_df = input_df[(input_df["building_name"] == loc)]
 
@@ -82,15 +96,18 @@ def run_pricing_pipeline(
             avg_exp = abs(parse_float(row.get("exp_total_po_expense_amount")))
 
         occupancy_val = parse_pct(row.get("po_seats_occupied_pct"))
+        raw_actual_occupancy = row.get("po_seats_actual_occupied_pct")
+        parsed_actual_occupancy = parse_pct(raw_actual_occupancy)
+        print(
+            f"DEBUG: {loc} raw_actual_occupancy={raw_actual_occupancy!r}, parsed_actual_occupancy={parsed_actual_occupancy}"
+        )
         location_data = LocationData(
             name=loc,
             exp_total_po_expense_amount=parse_float(
                 row.get("exp_total_po_expense_amount"), absolute=True
             ),
             avg_exp_total_po_expense_amount=avg_exp,
-            po_seats_actual_occupied_pct=parse_float(
-                row.get("po_seats_actual_occupied_pct")
-            ),
+            po_seats_actual_occupied_pct=parsed_actual_occupancy,
             po_seats_occupied_pct=occupancy_val,
             total_po_seats=total_po_seats,
         )
@@ -98,8 +115,16 @@ def run_pricing_pipeline(
             pricing_result = calculator.calculate_pricing(location_data)
             output = PricingCLIOutput(
                 building_name=loc,
-                occupancy_pct=occupancy_val,
-                breakeven_occupancy_pct=pricing_result.breakeven_occupancy_pct,
+                occupancy_pct=(
+                    round(location_data.po_seats_actual_occupied_pct, 2)
+                    if location_data.po_seats_actual_occupied_pct is not None
+                    else None
+                ),
+                breakeven_occupancy_pct=(
+                    round(pricing_result.breakeven_occupancy_pct, 2)
+                    if pricing_result.breakeven_occupancy_pct is not None
+                    else None
+                ),
                 recommended_price=pricing_result.final_price,
                 losing_money=pricing_result.losing_money,
                 manual_override=None,
@@ -107,5 +132,7 @@ def run_pricing_pipeline(
             )
             outputs.append(output)
         except Exception as e:
-            print(f"{loc}: Error calculating price: {e}")
+            print(
+                f"ERROR: Calculation failed for location '{loc}' (row: {row.to_dict()}): {e}"
+            )
     return outputs

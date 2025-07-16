@@ -125,6 +125,27 @@ def run_pipeline(verbose=False, year=None, month=None):
         print(format_cli_output(output, verbose=verbose))
 
 
+def check_pricing(year=None, month=None):
+    try:
+        df = load_from_sqlite("pnl_sms_by_month")
+        print(f"Loaded {len(df)} rows from SQLite table 'pnl_sms_by_month'.")
+    except Exception as e:
+        print(f"Error loading data from SQLite: {e}")
+        df = pd.DataFrame()
+    now = datetime.datetime.now()
+    target_year = int(year) if year is not None else now.year
+    target_month = int(month) if month is not None else now.month
+    config = load_pricing_rules()
+    outputs = run_pricing_pipeline(
+        df, config, target_year=target_year, target_month=target_month, verbose=True
+    )
+    if not outputs:
+        print(f"No pricing results found for {target_year}-{target_month:02d}.")
+    else:
+        for output in outputs:
+            print(format_cli_output(output, verbose=True))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Zoho Analytics Data CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -195,6 +216,13 @@ def main():
         "--end-month", type=int, required=True, help="End month"
     )
 
+    check_parser = subparsers.add_parser(
+        "check-pricing",
+        help="Check pricing for all locations for a given year and month",
+    )
+    check_parser.add_argument("--year", type=int, help="Year")
+    check_parser.add_argument("--month", type=int, help="Month")
+
     args = parser.parse_args()
     if args.command == "fetch-and-save":
         fetch_and_save(args.report, args.year, args.month)
@@ -212,6 +240,8 @@ def main():
             args.end_year,
             args.end_month,
         )
+    elif args.command == "check-pricing":
+        check_pricing(year=args.year, month=args.month)
     else:
         parser.print_help()
 
