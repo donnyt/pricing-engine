@@ -2,6 +2,7 @@ import yaml
 from typing import Any, Dict, Optional, List
 import os
 from pydantic import BaseModel, Field
+from src.utils.parsing import parse_float, parse_int, parse_pct
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../config/pricing_rules.yaml")
 
@@ -40,7 +41,8 @@ class DynamicPricingTier(BaseModel):
 
 class LocationData(BaseModel):
     name: str
-    exp_total_po_expense_amount: float
+    exp_total_po_expense_amount: float  # single month, for reference
+    avg_exp_total_po_expense_amount: float  # 3-month average, for calculation
     po_seats_actual_occupied_pct: float
     po_seats_occupied_pct: Optional[float] = None
     total_po_seats: int
@@ -88,14 +90,14 @@ def calculate_breakeven_price_per_pax(
 ) -> float:
     """
     Calculate the target breakeven price per pax for a location.
-    Formula: breakeven_price = total_expense / (total_seats * target_breakeven_occupancy)
+    Formula: breakeven_price = avg_exp_total_po_expense_amount / (total_seats * target_breakeven_occupancy)
     Result is rounded to the nearest 50,000.
     """
     if location_data.total_po_seats == 0 or target_breakeven_occupancy == 0:
         raise ValueError(
             "Total PO seats and target breakeven occupancy must be greater than zero."
         )
-    raw_price = location_data.exp_total_po_expense_amount / (
+    raw_price = location_data.avg_exp_total_po_expense_amount / (
         location_data.total_po_seats * target_breakeven_occupancy
     )
     # Round to nearest 50,000
@@ -171,10 +173,7 @@ if __name__ == "__main__":
         if loc.strip().lower() == "holding":
             continue
         # Exclude locations with zero or missing PO seats
-        try:
-            total_po_seats = int(str(row["total_po_seats"]).replace(",", ""))
-        except Exception:
-            total_po_seats = 0
+        total_po_seats = parse_int(row.get("total_po_seats"))
         if total_po_seats == 0:
             continue
         rules_dict = get_location_rules(loc, config)
@@ -188,30 +187,19 @@ if __name__ == "__main__":
             ],
         )
         try:
-
-            def parse_float(val, absolute=False):
-                try:
-                    num = float(str(val).replace(",", ""))
-                    return abs(num) if absolute else num
-                except Exception:
-                    return 0.0
-
-            def parse_int(val):
-                try:
-                    return int(str(val).replace(",", ""))
-                except Exception:
-                    return 0
-
             location_data = LocationData(
                 name=loc,
                 exp_total_po_expense_amount=parse_float(
-                    row["exp_total_po_expense_amount"], absolute=True
+                    row.get("exp_total_po_expense_amount"), absolute=True
+                ),
+                avg_exp_total_po_expense_amount=parse_float(
+                    row.get("avg_exp_total_po_expense_amount"), absolute=True
                 ),
                 po_seats_actual_occupied_pct=parse_float(
-                    row["po_seats_actual_occupied_pct"]
+                    row.get("po_seats_actual_occupied_pct")
                 ),
                 po_seats_occupied_pct=parse_float(row.get("po_seats_occupied_pct")),
-                total_po_seats=parse_int(row["total_po_seats"]),
+                total_po_seats=total_po_seats,
             )
             target_breakeven_occupancy = rules_dict.get("target_breakeven_occupancy")
             if target_breakeven_occupancy is None:

@@ -26,6 +26,7 @@
   - [x] 1.3 Implement Zoho Analytics integration for data retrieval.
   - [x] 1.4 Configure project for microservices framework (e.g., FastAPI or Flask).
   - [x] 1.5 Implement local data storage using SQLite3 for Zoho Analytics data to avoid repeated API calls.
+  - [x] 1.6 Implement CLI and backend support for clearing and reloading Zoho Analytics data for a specific month or a range of months in the SQLite database, ensuring only the latest data for each period is present.
 - [ ] 2.0 Implement Core Pricing Calculation Engine
   - [ ] 2.1 Define data models for locations, expenses, occupancy, and pricing rules.
   - [ ] 2.2 Implement calculation of target breakeven price per pax.
@@ -41,6 +42,7 @@
   - [ ] 4.1 Implement CLI for pricing calculation and reporting.
   - [ ] 4.2 Develop API endpoints for external system access.
   - [ ] 4.3 Document CLI commands and API endpoints.
+  - [x] 4.4 Add CLI commands to clear and reload Zoho Analytics data for a single month or a range, ensuring the database always contains the latest data for each period.
 - [ ] 5.0 Implement Manual Override and Audit Trail Functionality
   - [ ] 5.1 Allow manual override of recommended price with user, date, and reason.
   - [ ] 5.2 Store and flag manual overrides in the output.

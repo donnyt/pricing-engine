@@ -5,6 +5,12 @@ import io
 from typing import List, Optional, Type, Any
 from dataclasses import dataclass, make_dataclass, fields
 import re
+from src.sqlite_storage import (
+    delete_from_sqlite_by_year_month,
+    delete_from_sqlite_by_range,
+    save_to_sqlite,
+)
+import time
 
 
 def get_zoho_access_token(
@@ -111,6 +117,44 @@ def fetch_pnl_sms_by_month_dataclasses(year: int, month: int) -> List[Any]:
         endpoint_path=endpoint_path,
         criteria=criteria,
     )
+
+
+def clear_and_reload_pnl_sms_by_month(year: int, month: int):
+    """
+    Clear previous pnl_sms_by_month data for the given year and month, then fetch and reload new data.
+    """
+    delete_from_sqlite_by_year_month("pnl_sms_by_month", year, month)
+    rows = fetch_pnl_sms_by_month_dataclasses(year, month)
+    save_to_sqlite("pnl_sms_by_month", rows)  # default is replace
+    return len(rows)
+
+
+def clear_and_reload_pnl_sms_by_month_range(
+    start_year: int, start_month: int, end_year: int, end_month: int
+):
+    """
+    Clear previous pnl_sms_by_month data for the given range, then fetch and reload new data for each month in the range.
+    """
+    delete_from_sqlite_by_range(
+        "pnl_sms_by_month", start_year, start_month, end_year, end_month
+    )
+    ym = []
+    y, m = start_year, start_month
+    while (y < end_year) or (y == end_year and m <= end_month):
+        ym.append((y, m))
+        if m == 12:
+            y += 1
+            m = 1
+        else:
+            m += 1
+    total_rows = 0
+    for i, (year, month) in enumerate(ym):
+        if i > 0:
+            time.sleep(2)  # Add delay to avoid API rate limiting
+        rows = fetch_pnl_sms_by_month_dataclasses(year, month)
+        save_to_sqlite("pnl_sms_by_month", rows, if_exists="append")
+        total_rows += len(rows)
+    return total_rows
 
 
 if __name__ == "__main__":
