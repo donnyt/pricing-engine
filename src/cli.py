@@ -19,18 +19,18 @@ Reports supported: pnl_sms_by_month (add more as needed)
 import argparse
 import pandas as pd
 import datetime
-from src.zoho_integration import (
+from zoho_integration import (
     fetch_pnl_sms_by_month_dataclasses,
     clear_and_reload_pnl_sms_by_month,
     clear_and_reload_pnl_sms_by_month_range,
 )
-from src.sqlite_storage import save_to_sqlite, load_from_sqlite
-from src.po_pricing_engine import (
+from sqlite_storage import save_to_sqlite, load_from_sqlite
+from po_pricing_engine import (
     load_pricing_rules,
     PricingCLIOutput,
 )
-from src.pricing_pipeline import run_pricing_pipeline
-from src.utils.parsing import format_price_int
+from pricing_pipeline import run_pricing_pipeline
+from utils.parsing import format_price_int
 
 
 def fetch_and_save(report: str, year: int = None, month: int = None):

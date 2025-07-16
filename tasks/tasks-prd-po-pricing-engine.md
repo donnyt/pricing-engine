@@ -51,6 +51,7 @@
   - [ ] 6.1 Format output to include recommended price, manual override note, latest occupancy, breakeven occupancy %, and highlight if location is losing money.
   - [ ] 6.2 Integrate LLM to generate reasoning for price recommendations.
   - [ ] 6.3 Ensure output is clear and actionable for end users.
+  - [x] 6.4 Format CLI output to display recommended prices as integers with thousands separators and no decimal points for clarity.
 - [x] 7.0 Testing, Validation, and Documentation
   - [x] 7.1 Write unit tests for all modules and core logic.
   - [ ] 7.2 Validate calculation accuracy and business rule enforcement.

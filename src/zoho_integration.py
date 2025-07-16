@@ -5,7 +5,7 @@ import io
 from typing import List, Optional, Type, Any
 from dataclasses import dataclass, make_dataclass, fields
 import re
-from src.sqlite_storage import (
+from sqlite_storage import (
     delete_from_sqlite_by_year_month,
     delete_from_sqlite_by_range,
     save_to_sqlite,

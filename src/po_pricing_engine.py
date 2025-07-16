@@ -1,8 +1,18 @@
 import yaml
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict
 import os
 from pydantic import BaseModel, Field
-from src.utils.parsing import parse_float, parse_int, parse_pct
+from utils.parsing import parse_float, parse_int, parse_pct
+from pricing.models import (
+    get_location_rules,
+    DynamicPricingTier,
+    LocationData,
+    PricingRules,
+    PricingResult,
+    ManualOverrideInfo,
+    PricingCLIOutput,
+)
+from pricing.calculator import PricingCalculator
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../config/pricing_rules.yaml")
 
@@ -13,150 +23,12 @@ def load_pricing_rules(config_path: str = CONFIG_PATH) -> Dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def get_location_rules(location: str, config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Retrieve pricing rules for a given location, falling back to global margin_of_safety if not set.
-    Returns a dict with keys: min_price, max_price, margin_of_safety, dynamic_pricing_tiers, target_breakeven_occupancy.
-    """
-    loc_rules = config.get("locations", {}).get(location, {})
-    margin_of_safety = loc_rules.get("margin_of_safety", config.get("margin_of_safety"))
-    min_price = loc_rules.get("min_price")
-    max_price = loc_rules.get("max_price")
-    tiers = config.get("dynamic_pricing_tiers", [])
-    target_breakeven_occupancy = loc_rules.get("target_breakeven_occupancy")
-    return {
-        "min_price": min_price,
-        "max_price": max_price,
-        "margin_of_safety": margin_of_safety,
-        "dynamic_pricing_tiers": tiers,
-        "target_breakeven_occupancy": target_breakeven_occupancy,
-    }
-
-
-class DynamicPricingTier(BaseModel):
-    min_occupancy: float
-    max_occupancy: float
-    multiplier: float
-
-
-class LocationData(BaseModel):
-    name: str
-    exp_total_po_expense_amount: float  # single month, for reference
-    avg_exp_total_po_expense_amount: float  # 3-month average, for calculation
-    po_seats_actual_occupied_pct: float
-    po_seats_occupied_pct: Optional[float] = None
-    total_po_seats: int
-    # Add other fields as needed
-
-
-class PricingRules(BaseModel):
-    min_price: Optional[float]
-    max_price: Optional[float]
-    margin_of_safety: float
-    dynamic_pricing_tiers: List[DynamicPricingTier]
-
-
-class PricingResult(BaseModel):
-    location: str
-    recommended_price: float
-    manual_override: Optional[Dict[str, Any]] = None
-    latest_occupancy: float
-    breakeven_occupancy_pct: float
-    is_losing_money: bool
-    reasoning: Optional[str]
-
-
-class ManualOverrideInfo(BaseModel):
-    overridden_price: float
-    overridden_by: str
-    overridden_at: str  # ISO date string
-    reason: str
-    original_price: float
-
-
-class PricingCLIOutput(BaseModel):
-    building_name: str
-    occupancy_pct: float
-    breakeven_occupancy_pct: float
-    recommended_price: float
-    losing_money: bool
-    manual_override: Optional[ManualOverrideInfo] = None
-    llm_reasoning: Optional[str] = None
-    # Optionally: audit_trail: List[AuditEntry]
-
-
-def calculate_breakeven_price_per_pax(
-    location_data: LocationData, target_breakeven_occupancy: float
-) -> float:
-    """
-    Calculate the target breakeven price per pax for a location.
-    Formula: breakeven_price = avg_exp_total_po_expense_amount / (total_seats * target_breakeven_occupancy)
-    Result is rounded to the nearest 50,000.
-    """
-    if location_data.total_po_seats == 0 or target_breakeven_occupancy == 0:
-        raise ValueError(
-            "Total PO seats and target breakeven occupancy must be greater than zero."
-        )
-    raw_price = location_data.avg_exp_total_po_expense_amount / (
-        location_data.total_po_seats * target_breakeven_occupancy
-    )
-    # Round to nearest 50,000
-    rounded_price = round(raw_price / 50000) * 50000
-    return rounded_price
-
-
-def get_dynamic_pricing_multiplier(
-    occupancy_pct: float, tiers: List[DynamicPricingTier]
-) -> float:
-    """
-    Get the dynamic pricing multiplier for a given occupancy percentage.
-    """
-    for tier in tiers:
-        if tier.min_occupancy < occupancy_pct <= tier.max_occupancy:
-            return tier.multiplier
-    # Fallback: if not matched, return 1.0
-    return 1.0
-
-
-def apply_dynamic_pricing(
-    breakeven_price: float, occupancy_pct: float, tiers: List[DynamicPricingTier]
-) -> float:
-    """
-    Apply the dynamic pricing multiplier to the breakeven price and round to nearest 50,000.
-    """
-    multiplier = get_dynamic_pricing_multiplier(occupancy_pct, tiers)
-    base_price = breakeven_price * multiplier
-    return round(base_price / 50000) * 50000
-
-
-def apply_margin_of_safety(base_price: float, margin_of_safety: float) -> float:
-    """
-    Apply the margin of safety to the base price and round to nearest 50,000.
-    """
-    price_with_margin = base_price * (1 + margin_of_safety)
-    return round(price_with_margin / 50000) * 50000
-
-
-def enforce_min_max_price(
-    price: float, min_price: Optional[float], max_price: Optional[float]
-) -> float:
-    """
-    Enforce min and max price boundaries. If min or max is None, ignore that bound.
-    """
-    if min_price is not None and price < min_price:
-        return min_price
-    if max_price is not None and price > max_price:
-        return max_price
-    return price
-
-
 # Sample usage (for demonstration/testing)
 if __name__ == "__main__":
     from src.sqlite_storage import load_from_sqlite
     import pandas as pd
 
     config = load_pricing_rules()
-    # Load all Zoho data for May 2025 from SQLite
     try:
         df = load_from_sqlite("pnl_sms_by_month")
         print(f"Loaded {len(df)} rows from SQLite table 'pnl_sms_by_month'.")
@@ -164,28 +36,16 @@ if __name__ == "__main__":
         print(f"Error loading data from SQLite: {e}")
         df = pd.DataFrame()
 
-    # Map each row to LocationData and run the pricing pipeline
+    calculator = PricingCalculator(config)
     for idx, row in df.iterrows():
         loc = row.get("building_name")
         if not loc:
             continue
-        # Exclude locations named 'Holding' (case-insensitive)
         if loc.strip().lower() == "holding":
             continue
-        # Exclude locations with zero or missing PO seats
         total_po_seats = parse_int(row.get("total_po_seats"))
         if total_po_seats == 0:
             continue
-        rules_dict = get_location_rules(loc, config)
-        rules = PricingRules(
-            min_price=rules_dict["min_price"],
-            max_price=rules_dict["max_price"],
-            margin_of_safety=rules_dict["margin_of_safety"],
-            dynamic_pricing_tiers=[
-                DynamicPricingTier(**tier)
-                for tier in rules_dict["dynamic_pricing_tiers"]
-            ],
-        )
         try:
             location_data = LocationData(
                 name=loc,
@@ -201,23 +61,9 @@ if __name__ == "__main__":
                 po_seats_occupied_pct=parse_float(row.get("po_seats_occupied_pct")),
                 total_po_seats=total_po_seats,
             )
-            target_breakeven_occupancy = rules_dict.get("target_breakeven_occupancy")
-            if target_breakeven_occupancy is None:
-                target_breakeven_occupancy = 0.7
-            breakeven_price = calculate_breakeven_price_per_pax(
-                location_data, target_breakeven_occupancy
-            )
-            base_price = apply_dynamic_pricing(
-                breakeven_price,
-                location_data.po_seats_actual_occupied_pct,
-                rules.dynamic_pricing_tiers,
-            )
-            final_price = apply_margin_of_safety(base_price, rules.margin_of_safety)
-            clamped_price = enforce_min_max_price(
-                final_price, rules.min_price, rules.max_price
-            )
+            pricing_result = calculator.calculate_pricing(location_data)
             print(
-                f"{loc}: Breakeven = {breakeven_price:.2f}, Base = {base_price:.2f}, Final after margin = {final_price:.2f}, Clamped = {clamped_price:.2f}"
+                f"{loc}: Breakeven = {pricing_result.breakeven_price:.2f}, Base = {pricing_result.base_price:.2f}, Final after margin = {pricing_result.price_with_margin:.2f}, Clamped = {pricing_result.final_price:.2f}"
             )
         except Exception as e:
             print(f"{loc}: Error calculating price: {e}")

@@ -1,18 +1,14 @@
 from typing import List
 import pandas as pd
-from src.po_pricing_engine import (
-    load_pricing_rules,
+from pricing.models import (
     get_location_rules,
     PricingRules,
     DynamicPricingTier,
     LocationData,
-    calculate_breakeven_price_per_pax,
-    apply_dynamic_pricing,
-    apply_margin_of_safety,
-    enforce_min_max_price,
     PricingCLIOutput,
 )
-from src.utils.parsing import parse_float, parse_int, parse_pct
+from utils.parsing import parse_float, parse_int, parse_pct
+from pricing.calculator import PricingCalculator
 
 
 def run_pricing_pipeline(
@@ -52,6 +48,7 @@ def run_pricing_pipeline(
     grouped = grouped[
         (grouped["year"] == target_year) & (grouped["month"] == target_month)
     ]
+    calculator = PricingCalculator(config)
     for _, row in grouped.iterrows():
         loc = str(row["building_name"]).strip()
         print(f"DEBUG: Processing location: {repr(loc)}")
@@ -63,34 +60,27 @@ def run_pricing_pipeline(
         if total_po_seats == 0:
             continue
         loc_df = input_df[(input_df["building_name"] == loc)]
-        
+
         # Get all previous months for this location (before target month)
         prev_months = loc_df[
-            (loc_df["year"] < year) | ((loc_df["year"] == year) & (loc_df["month"] < month))
+            (loc_df["year"] < year)
+            | ((loc_df["year"] == year) & (loc_df["month"] < month))
         ].sort_values(["year", "month"], ascending=False)
-        
+
         # Use up to 3 most recent months, but accept whatever is available
         prev_months = prev_months.head(3)
-        
+
         # Calculate average expense from available historical data
         if not prev_months.empty:
-            avg_exp = prev_months["exp_total_po_expense_amount"].apply(
-                lambda x: abs(parse_float(x))
-            ).mean()
+            avg_exp = (
+                prev_months["exp_total_po_expense_amount"]
+                .apply(lambda x: abs(parse_float(x)))
+                .mean()
+            )
         else:
             # Fallback to current month if no historical data
             avg_exp = abs(parse_float(row.get("exp_total_po_expense_amount")))
-        
-        rules_dict = get_location_rules(loc, config)
-        rules = PricingRules(
-            min_price=rules_dict["min_price"],
-            max_price=rules_dict["max_price"],
-            margin_of_safety=rules_dict["margin_of_safety"],
-            dynamic_pricing_tiers=[
-                DynamicPricingTier(**tier)
-                for tier in rules_dict["dynamic_pricing_tiers"]
-            ],
-        )
+
         occupancy_val = parse_pct(row.get("po_seats_occupied_pct"))
         location_data = LocationData(
             name=loc,
@@ -104,29 +94,16 @@ def run_pricing_pipeline(
             po_seats_occupied_pct=occupancy_val,
             total_po_seats=total_po_seats,
         )
-        target_breakeven_occupancy = rules_dict.get("target_breakeven_occupancy", 0.7)
         try:
-            breakeven_price = calculate_breakeven_price_per_pax(
-                location_data, target_breakeven_occupancy
-            )
-            base_price = apply_dynamic_pricing(
-                breakeven_price, occupancy_val, rules.dynamic_pricing_tiers
-            )
-            final_price = apply_margin_of_safety(base_price, rules.margin_of_safety)
-            clamped_price = enforce_min_max_price(
-                final_price, rules.min_price, rules.max_price
-            )
-            losing_money = occupancy_val < target_breakeven_occupancy
-            manual_override = None
-            llm_reasoning = None
+            pricing_result = calculator.calculate_pricing(location_data)
             output = PricingCLIOutput(
                 building_name=loc,
                 occupancy_pct=occupancy_val,
-                breakeven_occupancy_pct=target_breakeven_occupancy,
-                recommended_price=clamped_price,
-                losing_money=losing_money,
-                manual_override=manual_override,
-                llm_reasoning=llm_reasoning,
+                breakeven_occupancy_pct=pricing_result.breakeven_occupancy_pct,
+                recommended_price=pricing_result.final_price,
+                losing_money=pricing_result.losing_money,
+                manual_override=None,
+                llm_reasoning=None,
             )
             outputs.append(output)
         except Exception as e:

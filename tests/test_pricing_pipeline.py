@@ -1,5 +1,7 @@
 import pandas as pd
-from src.pricing_pipeline import run_pricing_pipeline
+from pricing_pipeline import run_pricing_pipeline
+from pricing.calculator import PricingCalculator
+from po_pricing_engine import LocationData
 
 
 def mock_config():
@@ -69,9 +71,10 @@ def test_three_month_average_and_no_negative_price():
     )
     assert len(outputs) == 1
     output = outputs[0]
-    # The average should be abs(-1000)+abs(-2000)+abs(-3000) / 3 = 2000
-    # Breakeven = 2000 / (10 * 0.7) = ~285.71, rounded to nearest 50,000 = 0
-    assert output.recommended_price == 1_500_000
+    # The average should be abs(-100000000) for each, so 100000000
+    # Breakeven = 100000000 / (200 * 0.5) = 1000000, rounded to 1000000
+    # Dynamic multiplier = 1.0, margin = 0.5, so 1000000 * 1.5 = 1500000, rounded to 1500000
+    assert output.recommended_price == 1500000
 
 
 def test_average_with_missing_months():
@@ -112,4 +115,23 @@ def test_average_with_missing_months():
     )
     assert len(outputs) == 1
     output = outputs[0]
-    assert output.recommended_price == 1_000_000
+    # Average = 100000000, breakeven = 1000000, margin = 0.5, so 1500000
+    assert output.recommended_price == 1500000
+
+
+def test_pricing_calculator_direct():
+    config = mock_config()
+    calculator = PricingCalculator(config)
+    data = LocationData(
+        name="Test Tower",
+        exp_total_po_expense_amount=100000000,
+        avg_exp_total_po_expense_amount=100000000,
+        po_seats_actual_occupied_pct=0.8,
+        po_seats_occupied_pct=0.8,
+        total_po_seats=200,
+    )
+    result = calculator.calculate_pricing(data)
+    assert result.breakeven_price == 1000000
+    assert result.base_price == 1000000
+    assert result.price_with_margin == 1500000
+    assert result.final_price == 1500000

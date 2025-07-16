@@ -1,5 +1,12 @@
 import sys
-from src.zoho_integration import get_access_token, get_zoho_data
+from po_pricing_engine import (
+    get_location_rules,
+    DynamicPricingTier,
+    LocationData,
+    PricingRules,
+    load_pricing_rules,
+)
+from pricing.calculator import PricingCalculator
 
 if __name__ == "__main__":
     print("Testing Zoho Analytics Integration with real credentials...")

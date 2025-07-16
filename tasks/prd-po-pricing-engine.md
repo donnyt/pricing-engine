@@ -64,6 +64,7 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
     - The latest occupancy
     - The breakeven occupancy percentage
     - A highlight/note if the latest occupancy is above or below the breakeven occupancy percentage (if below, indicate the location is losing money)
+    - The recommended price is displayed as an integer with thousands separators and no decimal points for clarity in the CLI output.
 19. The engine must support clearing and reloading Zoho Analytics data for a specific month or a range of months in the SQLite database, both programmatically and via CLI. The CLI must provide commands to clear and reload data for a single month or a range, ensuring only the latest data for each period is present.
 
 ## 5. Non-Goals (Out of Scope)
@@ -80,6 +81,7 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
 - The system should be modular to allow future expansion (e.g., other product types).
 - The system should support saving and loading Zoho Analytics data locally using SQLite3 to minimize unnecessary API calls and improve performance.
 - The CLI supports commands to clear and reload Zoho Analytics data for a specific month or a range of months, ensuring the database always contains the latest data for each period.
+- The CLI output displays recommended prices as integers with thousands separators and no decimal points for improved readability.
 
 ## 7. Technical Considerations (Optional)
 
