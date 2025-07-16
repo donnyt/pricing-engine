@@ -10,6 +10,7 @@ from pricing.models import (
 from utils.parsing import parse_float, parse_int, parse_pct
 from pricing.calculator import PricingCalculator
 from sqlite_storage import get_published_price
+from llm_reasoning import generate_llm_reasoning
 
 
 def run_pricing_pipeline(
@@ -28,7 +29,6 @@ def run_pricing_pipeline(
 
     outputs: List[PricingCLIOutput] = []
     if input_df.empty:
-        print("DEBUG: Input DataFrame is empty.")
         return outputs
     # Ensure year and month columns are present and sorted
     if "year" not in input_df.columns or "month" not in input_df.columns:
@@ -36,12 +36,6 @@ def run_pricing_pipeline(
     input_df = input_df.sort_values(["building_name", "year", "month"])
     # Normalize building names to avoid trailing spaces or invisible characters
     input_df["building_name"] = input_df["building_name"].astype(str).str.strip()
-    print(
-        "DEBUG: Unique building names in DataFrame:", input_df["building_name"].unique()
-    )
-    # Debug: Show dtypes and sample rows before filtering
-    print("DEBUG: DataFrame dtypes before filtering:\n", input_df.dtypes)
-    print("DEBUG: Sample rows before filtering:\n", input_df.head())
     # Ensure year and month columns are int for filtering
     input_df["year"] = input_df["year"].astype(int)
     input_df["month"] = input_df["month"].astype(int)
@@ -56,23 +50,17 @@ def run_pricing_pipeline(
     grouped = grouped[
         (grouped["year"] == target_year) & (grouped["month"] == target_month)
     ]
-    print("DEBUG: Filtered DataFrame for target year/month:")
-    print(grouped[["building_name", "year", "month", "total_po_seats"]])
     calculator = PricingCalculator(config)
     for _, row in grouped.iterrows():
         loc = str(row["building_name"]).strip()
-        print(f"DEBUG: Processing location: {repr(loc)}")
         year = row["year"]
         month = row["month"]
         total_po_seats = parse_int(row.get("total_po_seats"))
         if not loc:
-            print(f"SKIP: Empty location name (row: {row.to_dict()})")
             continue
         if str(loc).strip().lower() == "holding":
-            print(f"SKIP: Location '{loc}' is 'Holding'.")
             continue
         if total_po_seats == 0:
-            print(f"SKIP: Location '{loc}' has zero PO seats.")
             continue
         loc_df = input_df[(input_df["building_name"] == loc)]
 
@@ -99,9 +87,6 @@ def run_pricing_pipeline(
         occupancy_val = parse_pct(row.get("po_seats_occupied_pct"))
         raw_actual_occupancy = row.get("po_seats_actual_occupied_pct")
         parsed_actual_occupancy = parse_pct(raw_actual_occupancy)
-        print(
-            f"DEBUG: {loc} raw_actual_occupancy={raw_actual_occupancy!r}, parsed_actual_occupancy={parsed_actual_occupancy}"
-        )
         # Fetch published price for this location/month
         published_price = get_published_price(loc, year, month)
         location_data = LocationData(
@@ -117,6 +102,15 @@ def run_pricing_pipeline(
         )
         try:
             pricing_result = calculator.calculate_pricing(location_data)
+            # Prepare context for LLM reasoning
+            llm_context = {
+                "location": loc,
+                "recommended_price": pricing_result.final_price,
+                "occupancy_pct": location_data.po_seats_actual_occupied_pct,
+                "breakeven_occupancy_pct": pricing_result.breakeven_occupancy_pct,
+                "published_price": location_data.published_price,
+            }
+            llm_reasoning = generate_llm_reasoning(llm_context)
             output = PricingCLIOutput(
                 building_name=loc,
                 occupancy_pct=(
@@ -132,7 +126,7 @@ def run_pricing_pipeline(
                 recommended_price=pricing_result.final_price,
                 losing_money=pricing_result.losing_money,
                 manual_override=None,
-                llm_reasoning=None,
+                llm_reasoning=llm_reasoning,
                 published_price=location_data.published_price,
             )
             outputs.append(output)

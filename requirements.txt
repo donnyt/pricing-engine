@@ -5,3 +5,4 @@ pandas
 uvicorn
 pyyaml
 pydantic
+openai

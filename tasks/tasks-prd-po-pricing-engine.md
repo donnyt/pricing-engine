@@ -51,8 +51,8 @@
   - [x] 5.2 Display published price in CLI and API output, clearly distinguishing it from the recommended price.
   - [x] 5.3 Ensure published price is persisted and can be updated or replaced for a given period.
 - [ ] 6.0 Output Formatting, Reporting, and LLM Reasoning Integration
-  - [ ] 6.1 Format output to include recommended price, manual override note, latest occupancy, breakeven occupancy %, and highlight if location is losing money.
-  - [ ] 6.2 Integrate LLM to generate reasoning for price recommendations.
+  - [x] 6.1 Format output to include recommended price, manual override note, latest occupancy, breakeven occupancy %, and highlight if location is losing money.
+  - [x] 6.2 Integrate LLM to generate reasoning for price recommendations.
   - [ ] 6.3 Ensure output is clear and actionable for end users.
   - [x] 6.4 Format CLI output to display recommended prices as integers with thousands separators and no decimal points for clarity.
 - [x] 7.0 Testing, Validation, and Documentation

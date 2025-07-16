@@ -83,7 +83,7 @@ def clear_and_reload_range(
 
 def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
     lines = [f"{output.building_name}:"]
-    lines.append(f"  Occupancy: {int(round(output.occupancy_pct * 100))}%")
+    lines.append(f"  Latest Occupancy: {int(round(output.occupancy_pct * 100))}%")
     lines.append(
         f"  Breakeven Occupancy: {int(round(output.breakeven_occupancy_pct * 100))}%"
     )
@@ -91,29 +91,32 @@ def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
         lines.append(f"  Published Price: {format_price_int(output.published_price)}")
     lines.append(f"  Recommended Price: {format_price_int(output.recommended_price)}")
     if output.losing_money:
-        lines.append("  ⚠️ Losing money at current occupancy!")
+        lines.append("  ⚠️ ALERT: This location is losing money at current occupancy!")
     if verbose and output.llm_reasoning:
         lines.append(f"  Reasoning: {output.llm_reasoning}")
     return "\n".join(lines)
 
 
-def run_pipeline(verbose=False, year=None, month=None):
+def run_pipeline(verbose=False, year=None, month=None, location=None):
     try:
         df = load_from_sqlite("pnl_sms_by_month")
-        print(f"Loaded {len(df)} rows from SQLite table 'pnl_sms_by_month'.")
     except Exception as e:
         print(f"Error loading data from SQLite: {e}")
         df = pd.DataFrame()
-    # Determine target year/month
     now = datetime.datetime.now()
     target_year = int(year) if year is not None else now.year
     target_month = int(month) if month is not None else now.month
-    # Ensure year and month columns are int for filtering
     if not df.empty:
         df["year"] = df["year"].astype(int)
         df["month"] = df["month"].astype(int)
-    print(f"Processing for target period: {target_year}-{target_month:02d}")
     config = load_pricing_rules()
+    if location:
+        # Normalize location for matching
+        normalized_location = location.strip().lower()
+        df = df[
+            df["building_name"].astype(str).str.strip().str.lower()
+            == normalized_location
+        ]
     outputs = run_pricing_pipeline(
         df, config, target_year=target_year, target_month=target_month, verbose=verbose
     )
@@ -168,7 +171,7 @@ def main():
 
     pipeline_parser = subparsers.add_parser(
         "run-pipeline",
-        help="Run the full pricing pipeline and print results for all locations",
+        help="Run the full pricing pipeline and print results for all locations or a single location",
     )
     pipeline_parser.add_argument(
         "--verbose", action="store_true", help="Show detailed output for each location"
@@ -178,6 +181,11 @@ def main():
     )
     pipeline_parser.add_argument(
         "--month", type=int, help="Target month for pricing (default: current month)"
+    )
+    pipeline_parser.add_argument(
+        "--location",
+        type=str,
+        help="Run for a single location (default: all locations)",
     )
 
     clear_parser = subparsers.add_parser(
@@ -225,7 +233,12 @@ def main():
     elif args.command == "load":
         load_and_preview(args.report)
     elif args.command == "run-pipeline":
-        run_pipeline(verbose=args.verbose, year=args.year, month=args.month)
+        run_pipeline(
+            verbose=args.verbose,
+            year=args.year,
+            month=args.month,
+            location=args.location,
+        )
     elif args.command == "clear-and-reload":
         clear_and_reload(args.report, args.year, args.month)
     elif args.command == "clear-and-reload-range":
