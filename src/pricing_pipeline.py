@@ -9,6 +9,7 @@ from pricing.models import (
 )
 from utils.parsing import parse_float, parse_int, parse_pct
 from pricing.calculator import PricingCalculator
+from sqlite_storage import get_published_price
 
 
 def run_pricing_pipeline(
@@ -101,6 +102,8 @@ def run_pricing_pipeline(
         print(
             f"DEBUG: {loc} raw_actual_occupancy={raw_actual_occupancy!r}, parsed_actual_occupancy={parsed_actual_occupancy}"
         )
+        # Fetch published price for this location/month
+        published_price = get_published_price(loc, year, month)
         location_data = LocationData(
             name=loc,
             exp_total_po_expense_amount=parse_float(
@@ -110,6 +113,7 @@ def run_pricing_pipeline(
             po_seats_actual_occupied_pct=parsed_actual_occupancy,
             po_seats_occupied_pct=occupancy_val,
             total_po_seats=total_po_seats,
+            published_price=published_price,
         )
         try:
             pricing_result = calculator.calculate_pricing(location_data)
@@ -129,6 +133,7 @@ def run_pricing_pipeline(
                 losing_money=pricing_result.losing_money,
                 manual_override=None,
                 llm_reasoning=None,
+                published_price=location_data.published_price,
             )
             outputs.append(output)
         except Exception as e:

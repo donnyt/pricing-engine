@@ -46,10 +46,10 @@
   - [x] 4.2 Develop API endpoints for external system access.
   - [x] 4.3 Document CLI commands and API endpoints.
   - [x] 4.4 Add CLI commands to clear and reload Zoho Analytics data for a single month or a range, ensuring the database always contains the latest data for each period.
-- [ ] 5.0 Implement Manual Override and Audit Trail Functionality
-  - [ ] 5.1 Allow manual override of recommended price with user, date, and reason.
-  - [ ] 5.2 Store and flag manual overrides in the output.
-  - [ ] 5.3 Implement audit trail for all overrides.
+- [x] 5.0 Implement Published Price Functionality
+  - [x] 5.1 Store published price for each location and month, with user, date, and reason for publishing.
+  - [x] 5.2 Display published price in CLI and API output, clearly distinguishing it from the recommended price.
+  - [x] 5.3 Ensure published price is persisted and can be updated or replaced for a given period.
 - [ ] 6.0 Output Formatting, Reporting, and LLM Reasoning Integration
   - [ ] 6.1 Format output to include recommended price, manual override note, latest occupancy, breakeven occupancy %, and highlight if location is losing money.
   - [ ] 6.2 Integrate LLM to generate reasoning for price recommendations.

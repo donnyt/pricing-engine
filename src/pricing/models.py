@@ -31,6 +31,7 @@ class LocationData(BaseModel):
     po_seats_actual_occupied_pct: float
     po_seats_occupied_pct: Optional[float] = None
     total_po_seats: int
+    published_price: Optional[float] = None
 
 
 class PricingRules(BaseModel):
@@ -71,3 +72,4 @@ class PricingCLIOutput(BaseModel):
     losing_money: bool
     manual_override: Optional[ManualOverrideInfo] = None
     llm_reasoning: Optional[str] = None
+    published_price: Optional[float] = None

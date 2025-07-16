@@ -87,15 +87,11 @@ def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
     lines.append(
         f"  Breakeven Occupancy: {int(round(output.breakeven_occupancy_pct * 100))}%"
     )
+    if hasattr(output, "published_price") and output.published_price is not None:
+        lines.append(f"  Published Price: {format_price_int(output.published_price)}")
     lines.append(f"  Recommended Price: {format_price_int(output.recommended_price)}")
     if output.losing_money:
         lines.append("  ⚠️ Losing money at current occupancy!")
-    if output.manual_override:
-        mo = output.manual_override
-        lines.append(
-            f"  Manual Override: {mo.overridden_price:,.2f} by {mo.overridden_by} on {mo.overridden_at} ({mo.reason})"
-        )
-        lines.append(f"  Original Calculated Price: {mo.original_price:,.2f}")
     if verbose and output.llm_reasoning:
         lines.append(f"  Reasoning: {output.llm_reasoning}")
     return "\n".join(lines)

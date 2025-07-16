@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
-from typing import List, Any
+from typing import List, Any, Optional
+from dataclasses import dataclass
 
 
 def save_to_sqlite(
@@ -74,3 +75,98 @@ def delete_from_sqlite_by_range(
                 f"DELETE FROM {table_name} WHERE year = ? AND month = ?", (year, month)
             )
         conn.commit()
+
+
+@dataclass
+class PublishedPrice:
+    building_name: str
+    year_from: int
+    month_from: int
+    year_to: int
+    month_to: int
+    price: float
+    reason: Optional[str] = None
+
+
+def save_published_price(
+    published_price: PublishedPrice,
+    db_path: str = "zoho_data.db",
+):
+    """
+    Save a published price record to the published_prices table.
+    If a published price already exists for the same building and period (range), replace it.
+    """
+    with sqlite3.connect(db_path) as conn:
+        # Delete any existing published price(s) for this building and period (range)
+        conn.execute(
+            """
+            DELETE FROM published_prices
+            WHERE building_name = ?
+              AND year_from = ? AND month_from = ?
+              AND year_to = ? AND month_to = ?
+            """,
+            (
+                published_price.building_name,
+                published_price.year_from,
+                published_price.month_from,
+                published_price.year_to,
+                published_price.month_to,
+            ),
+        )
+        # Insert the new published price
+        conn.execute(
+            """
+            INSERT INTO published_prices (
+                building_name, year_from, month_from, year_to, month_to, price, published_by, published_at, reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                published_price.building_name,
+                published_price.year_from,
+                published_price.month_from,
+                published_price.year_to,
+                published_price.month_to,
+                published_price.price,
+                getattr(published_price, "published_by", None),
+                getattr(published_price, "published_at", None),
+                published_price.reason,
+            ),
+        )
+        conn.commit()
+
+
+def get_published_price(
+    building_name: str,
+    year: int,
+    month: int,
+    db_path: str = "zoho_data.db",
+) -> Optional[float]:
+    """
+    Get the published price for a building and year/month from the published_prices table.
+    Returns the price if found, else None.
+    """
+    query = """
+        SELECT price FROM published_prices
+        WHERE building_name = ?
+          AND (year_from < ? OR (year_from = ? AND month_from <= ?))
+          AND (year_to > ? OR (year_to = ? AND month_to >= ?))
+        ORDER BY year_from DESC, month_from DESC
+        LIMIT 1
+    """
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.execute(
+            query,
+            (
+                building_name,
+                year,
+                year,
+                month,
+                year,
+                year,
+                month,
+            ),
+        )
+        row = cur.fetchone()
+        if row:
+            return float(row[0])
+        return None

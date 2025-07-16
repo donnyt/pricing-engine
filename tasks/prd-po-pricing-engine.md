@@ -43,29 +43,31 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
 6. The engine must allow the user to set a minimum and maximum price list for each location.
 7. The engine must allow the user to add additional business rules (e.g., based on total pax, lease duration, window premium).
 8. The engine must provide a recommended price range per location, ensuring the price falls within the set min/max range.
-9. The engine must provide LLM-generated reasoning for the recommended price range, based on the input parameters and business rules.
-10. The engine must expose its functionality via CLI and API.
-11. The engine must ensure all required inputs are available before performing calculations.
-12. The engine must ignore locations named "Holding".
-13. The engine must ignore locations where `total_po_seats` is 0 or null.
-14. The engine must be implemented in Python, using a microservices framework for easy integration.
-15. The engine must follow these calculation steps for each location:
+9. The engine must also display the published price (if available) for each location and month, pulled from the published_prices table in SQLite. The published price is shown before the recommended price in CLI and API output for easy comparison.
+10. The engine must provide LLM-generated reasoning for the recommended price range, based on the input parameters and business rules.
+11. The engine must expose its functionality via CLI and API.
+12. The engine must ensure all required inputs are available before performing calculations.
+13. The engine must ignore locations named "Holding".
+14. The engine must ignore locations where `total_po_seats` is 0 or null.
+15. The engine must be implemented in Python, using a microservices framework for easy integration.
+16. The engine must follow these calculation steps for each location:
     1. Calculate Target Breakeven Price per pax.
     2. Apply the dynamic pricing multiplier based on the latest occupancy.
     3. Obtain the Base price per pax.
     4. Apply a margin of safety (e.g., 50%) to the Base price per pax to get the calculated recommended price.
     5. Apply business rules for max and min price: if the calculated recommended price is outside the range, use the max or min price as appropriate.
-16. The engine must allow saving data retrieved from Zoho Analytics locally in a SQLite3 database for further processing, so repeated API calls are not required.
-17. The engine must allow a pricing analyst to manually override the calculated recommended price for any location. When this occurs, the system must:
+17. The engine must allow saving data retrieved from Zoho Analytics locally in a SQLite3 database for further processing, so repeated API calls are not required.
+18. The engine must allow a pricing analyst to manually override the calculated recommended price for any location. When this occurs, the system must:
     - Record the override, including the name of the person, the date, and the reasoning for the override.
     - Flag the output to indicate that the price has been manually overridden, and display the original calculated recommended price for reference.
-18. The output for each location must include:
+19. The output for each location must include:
+    - The published price (if available) for the location and month, shown before the recommended price
     - The recommended price (with a note if it is a manual override, including who, when, and why)
     - The latest occupancy
     - The breakeven occupancy percentage
     - A highlight/note if the latest occupancy is above or below the breakeven occupancy percentage (if below, indicate the location is losing money)
-    - The recommended price is displayed as an integer with thousands separators and no decimal points for clarity in the CLI output.
-19. The engine must support clearing and reloading Zoho Analytics data for a specific month or a range of months in the SQLite database, both programmatically and via CLI. The CLI must provide commands to clear and reload data for a single month or a range, ensuring only the latest data for each period is present.
+    - The published and recommended prices are displayed as integers with thousands separators and no decimal points for clarity in the CLI output.
+20. The engine must support clearing and reloading Zoho Analytics data for a specific month or a range of months in the SQLite database, both programmatically and via CLI. The CLI must provide commands to clear and reload data for a single month or a range, ensuring only the latest data for each period is present.
 
 ## 5. Non-Goals (Out of Scope)
 
