@@ -7,7 +7,7 @@ from dataclasses import dataclass
 def save_to_sqlite(
     table_name: str,
     rows: List[Any],
-    db_path: str = "zoho_data.db",
+    db_path: str = "data/zoho_data.db",
     if_exists: str = "replace",
 ):
     """
@@ -27,7 +27,9 @@ def save_to_sqlite(
         df.to_sql(table_name, conn, if_exists=if_exists, index=False)
 
 
-def load_from_sqlite(table_name: str, db_path: str = "zoho_data.db") -> pd.DataFrame:
+def load_from_sqlite(
+    table_name: str, db_path: str = "data/zoho_data.db"
+) -> pd.DataFrame:
     """
     Load data from a SQLite table into a pandas DataFrame.
     """
@@ -36,7 +38,7 @@ def load_from_sqlite(table_name: str, db_path: str = "zoho_data.db") -> pd.DataF
 
 
 def delete_from_sqlite_by_year_month(
-    table_name: str, year: int, month: int, db_path: str = "zoho_data.db"
+    table_name: str, year: int, month: int, db_path: str = "data/zoho_data.db"
 ):
     """
     Delete rows from a SQLite table for a specific year and month.
@@ -54,7 +56,7 @@ def delete_from_sqlite_by_range(
     start_month: int,
     end_year: int,
     end_month: int,
-    db_path: str = "zoho_data.db",
+    db_path: str = "data/zoho_data.db",
 ):
     """
     Delete rows from a SQLite table for a range of months/years (inclusive).
@@ -90,7 +92,7 @@ class PublishedPrice:
 
 def save_published_price(
     published_price: PublishedPrice,
-    db_path: str = "zoho_data.db",
+    db_path: str = "data/zoho_data.db",
 ):
     """
     Save a published price record to the published_prices table.
@@ -139,7 +141,7 @@ def get_published_price(
     building_name: str,
     year: int,
     month: int,
-    db_path: str = "zoho_data.db",
+    db_path: str = "data/zoho_data.db",
 ) -> Optional[float]:
     """
     Get the published price for a building and year/month from the published_prices table.

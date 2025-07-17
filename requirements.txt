@@ -6,3 +6,5 @@ uvicorn
 pyyaml
 pydantic
 openai
+google-auth
+google-apps-chat

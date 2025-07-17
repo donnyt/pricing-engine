@@ -2,8 +2,10 @@
 
 - `src/po_pricing_engine.py` - Main module implementing the PO pricing calculation logic and business rules.
 - `src/zoho_integration.py` - Handles data retrieval from Zoho Analytics.
-- `src/cli.py` - Command-line interface for interacting with the pricing engine, including pricing calculation and reporting.
-- `src/api.py` - API endpoints for external system integration.
+- `src/cli.py` - Main CLI wrapper that directs to specialized modules.
+- `src/zoho_cli.py` - CLI for Zoho Analytics data management operations.
+- `src/pricing_cli.py` - CLI for pricing engine operations and pipeline execution.
+- `src/app.py` - Unified FastAPI application combining API endpoints and Google Chat webhook functionality.
 - `src/llm_reasoning.py` - Module for generating LLM-based reasoning for price recommendations.
 - `src/audit.py` - Handles manual override audit trail and logging.
 - `tests/test_po_pricing_engine.py` - Unit tests for the pricing engine logic.
@@ -14,7 +16,10 @@
 - `tests/test_audit.py` - Unit tests for manual override and audit trail.
 - `src/pricing/models.py` - Contains all core data models for locations, expenses, occupancy, and pricing rules.
 - `src/pricing/calculator.py` - Implements the core pricing calculation logic, including breakeven price per pax, dynamic pricing multipliers, margin of safety, and min/max price enforcement.
+- `src/pricing/service.py` - Service layer providing clean abstraction for pricing operations (shared by API and Google Chat app).
+- `src/pricing/formatter.py` - Response formatters for different output formats (Google Chat, API JSON, etc.).
 - `src/pricing_pipeline.py` - Orchestrates the pricing calculation pipeline and excludes locations named 'Holding' and those with zero/null PO seats.
+- `tests/test_google_chat_app.py` - Unit tests for the Google Chat app integration and command handling.
 
 ### Notes
 
@@ -43,7 +48,7 @@
   - [ ] 3.3 Ensure all required inputs are validated before calculation.
 - [ ] 4.0 Develop CLI and API Interfaces
   - [x] 4.1 Implement CLI for pricing calculation and reporting.
-  - [x] 4.2 Develop API endpoints for external system access.
+  - [x] 4.2 Develop API endpoints for external system access (now unified in `src/app.py`).
   - [x] 4.3 Document CLI commands and API endpoints.
   - [x] 4.4 Add CLI commands to clear and reload Zoho Analytics data for a single month or a range, ensuring the database always contains the latest data for each period.
 - [x] 5.0 Implement Published Price Functionality
@@ -59,3 +64,21 @@
   - [x] 7.1 Write unit tests for all modules and core logic.
   - [ ] 7.2 Validate calculation accuracy and business rule enforcement.
   - [ ] 7.3 Document code, configuration, and usage instructions.
+- [ ] 8.0 Integrate with Google Spaces Chat
+  - [x] 8.1 Implement backend integration to receive and respond to pricing requests from Google Spaces Chat.
+  - [x] 8.2 Format responses for Google Spaces, including published price, recommended price, and reasoning.
+  - [ ] 8.3 Add authentication/authorization for chat-based requests if needed.
+  - [ ] 8.4 Document Google Spaces Chat integration and usage for end users.
+- [ ] 9.0 Implement Google Chat App (Bot) for Pricing Engine
+  - [x] 9.1 Set up Google Cloud project for the Chat app and enable Google Chat API
+  - [x] 9.2 Register the bot in Google Workspace and configure bot permissions
+  - [x] 9.3 Scaffold `src/app.py` with a unified FastAPI web server to receive Google Chat events and serve API endpoints
+  - [x] 9.4 Implement endpoint to receive and parse Google Chat messages/events in the unified app
+  - [x] 9.5 Implement command parsing logic to handle `/po-price <location> [month]` and validate input
+  - [x] 9.6 Integrate with the pricing engine API to fetch published price, recommended price, occupancy, breakeven %, and LLM reasoning for the requested location/month
+  - [ ] 9.7 Format the response for Google Chat, including all required fields and highlights (published price, recommended price, occupancy, breakeven %, reasoning, and loss warning if applicable)
+  - [ ] 9.8 Handle errors gracefully (e.g., location not found, missing data, API errors) and provide user-friendly feedback in chat
+  - [ ] 9.9 Implement authentication/authorization for chat users if required (e.g., restrict to organization users)
+  - [ ] 9.10 Log all requests and responses for audit and troubleshooting purposes
+  - [ ] 9.11 Write unit tests for command parsing, API integration, and response formatting in `tests/test_google_chat_app.py`
+  - [ ] 9.12 Document Google Chat app deployment steps, configuration, and usage instructions for end users

@@ -5,7 +5,7 @@ import io
 from typing import List, Optional, Type, Any
 from dataclasses import dataclass, make_dataclass, fields
 import re
-from sqlite_storage import (
+from src.sqlite_storage import (
     delete_from_sqlite_by_year_month,
     delete_from_sqlite_by_range,
     save_to_sqlite,
@@ -154,6 +154,60 @@ def clear_and_reload_pnl_sms_by_month_range(
         rows = fetch_pnl_sms_by_month_dataclasses(year, month)
         save_to_sqlite("pnl_sms_by_month", rows, if_exists="append")
         total_rows += len(rows)
+    return total_rows
+
+
+def upsert_pnl_sms_by_month(year: int, month: int):
+    """
+    Upsert pnl_sms_by_month data for a specific year and month.
+    If data exists for the given year/month, it will be deleted and reinserted.
+    If no data exists, it will be inserted.
+    """
+    # First, delete any existing data for this year/month
+    delete_from_sqlite_by_year_month("pnl_sms_by_month", year, month)
+
+    # Fetch fresh data from Zoho
+    rows = fetch_pnl_sms_by_month_dataclasses(year, month)
+
+    # Save to SQLite (this will insert the new data)
+    save_to_sqlite("pnl_sms_by_month", rows, if_exists="append")
+
+    return len(rows)
+
+
+def upsert_pnl_sms_by_month_range(
+    start_year: int, start_month: int, end_year: int, end_month: int
+):
+    """
+    Upsert pnl_sms_by_month data for a range of months.
+    For each month in the range, if data exists it will be deleted and reinserted.
+    If no data exists, it will be inserted.
+    """
+    # First, delete any existing data for the entire range
+    delete_from_sqlite_by_range(
+        "pnl_sms_by_month", start_year, start_month, end_year, end_month
+    )
+
+    # Generate list of year/month combinations
+    ym = []
+    y, m = start_year, start_month
+    while (y < end_year) or (y == end_year and m <= end_month):
+        ym.append((y, m))
+        if m == 12:
+            y += 1
+            m = 1
+        else:
+            m += 1
+
+    # Fetch and save data for each month
+    total_rows = 0
+    for i, (year, month) in enumerate(ym):
+        if i > 0:
+            time.sleep(2)  # Add delay to avoid API rate limiting
+        rows = fetch_pnl_sms_by_month_dataclasses(year, month)
+        save_to_sqlite("pnl_sms_by_month", rows, if_exists="append")
+        total_rows += len(rows)
+
     return total_rows
 
 

@@ -2,7 +2,9 @@
 
 ## 1. Introduction/Overview
 
-The Private Office (PO) Pricing Engine is designed to calculate and provide recommended PO pricing for each location, ensuring profitability by dynamically adjusting prices based on actual costs, occupancy, and business rules. The engine will automate pricing, reduce manual work, and provide clarity to sales and operations teams. It will also generate reasoning for the recommended price range using a Large Language Model (LLM).
+The Private Office (PO) Pricing Engine is designed to calculate and provide recommended PO pricing for each location, ensuring profitability by dynamically adjusting prices based on actual costs, occupancy, and business rules. The engine will automate pricing, reduce manual work, and provide clarity to sales and operations teams. It will also generate reasoning for the recommended price range using a Large Language Model (LLM). **The engine will also support integration with Google Spaces Chat, allowing users to request the latest pricing for a location directly via chat.**
+
+**Additionally, a Google Chat app will be developed to allow users to interact with the pricing engine directly from Google Chat, making it easy for sales, ops, and other team members to retrieve pricing and reasoning in real time.**
 
 ## 2. Goals
 
@@ -68,15 +70,51 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
     - A highlight/note if the latest occupancy is above or below the breakeven occupancy percentage (if below, indicate the location is losing money)
     - The published and recommended prices are displayed as integers with thousands separators and no decimal points for clarity in the CLI output.
 20. The engine must support clearing and reloading Zoho Analytics data for a specific month or a range of months in the SQLite database, both programmatically and via CLI. The CLI must provide commands to clear and reload data for a single month or a range, ensuring only the latest data for each period is present.
+21. The engine must support integration with Google Spaces Chat, allowing users to request the latest pricing for a location via chat and receive a formatted response with published price, recommended price, and reasoning.
 
-## 5. Non-Goals (Out of Scope)
+## 5. Google Chat App Integration
+
+### Overview
+A Google Chat app will be developed to provide seamless access to the PO Pricing Engine from within Google Chat. This app will allow users to request the latest pricing information for any location and receive a formatted response with all relevant details, including published price, recommended price, and LLM-generated reasoning.
+
+### Goals
+- Enable sales, ops, and other team members to retrieve PO pricing directly from Google Chat.
+- Provide a user-friendly chat interface for requesting and receiving pricing information.
+- Ensure responses include published price, recommended price, occupancy, breakeven percentage, and reasoning.
+- Support both direct messages and group chat interactions.
+
+### High-Level Requirements
+1. The Google Chat app must authenticate and authorize users as needed to access pricing data.
+2. The app must accept commands such as `/po-price <location> [month]` to retrieve pricing for a specific location and month (defaulting to the latest month if not specified).
+3. The app must call the pricing engine API to fetch the required data and reasoning.
+4. The app must format and return the response in a clear, readable format, including:
+    - Published price (if available)
+    - Recommended price (with override info if applicable)
+    - Latest occupancy
+    - Breakeven occupancy percentage
+    - Reasoning (LLM-generated)
+    - Highlight if occupancy is below breakeven
+5. The app must handle errors gracefully, providing helpful feedback if data is missing or a location is not found.
+6. The app must log requests and responses for audit and troubleshooting purposes.
+7. The app should be easy to deploy and configure for the organization’s Google Workspace environment.
+
+### Integration Points
+- The app will interact with the pricing engine via its API endpoints.
+- The app will be registered and deployed as a Google Chat app (bot) within the organization’s Google Workspace.
+- The app may use OAuth or service account credentials for secure API access.
+
+### Out of Scope
+- The app will not support pricing for product types other than Private Offices (PO).
+- The app will not allow manual overrides or configuration changes; it is read-only for pricing retrieval.
+
+## 6. Non-Goals (Out of Scope)
 
 - The engine will not calculate pricing for product types other than Private Offices (PO).
 - The engine will not handle manual overrides outside the defined business rules.
 - The engine will not process locations with missing or invalid data (e.g., zero or null PO seats).
 - The engine will not provide a user interface beyond CLI/API endpoints.
 
-## 6. Design Considerations (Optional)
+## 7. Design Considerations (Optional)
 
 - CLI and API endpoints should be simple and well-documented for use by sales, ops, and other systems.
 - If a PO has windows, a premium can be applied as an additional business rule.
@@ -85,7 +123,7 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
 - The CLI supports commands to clear and reload Zoho Analytics data for a specific month or a range of months, ensuring the database always contains the latest data for each period.
 - The CLI output displays recommended prices as integers with thousands separators and no decimal points for improved readability.
 
-## 7. Technical Considerations (Optional)
+## 8. Technical Considerations (Optional)
 
 - Must be implemented in Python.
 - Should use a microservices framework (e.g., FastAPI, Flask, etc.) for API exposure.
@@ -93,7 +131,7 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
 - Should be designed for stateless operation to support scaling.
 - LLM integration for reasoning can use an external API or local model, as appropriate.
 
-## 8. Success Metrics
+## 9. Success Metrics
 
 - Accuracy of price calculation as validated by the pricing team.
 - Ability to calculate and return PO price per pax in real time.
@@ -101,7 +139,7 @@ The Private Office (PO) Pricing Engine is designed to calculate and provide reco
 - Increased clarity and transparency in pricing decisions.
 - Adoption rate by sales and ops teams.
 
-## 9. Open Questions
+## 10. Open Questions
 
 - What is the preferred LLM provider or API for generating reasoning (e.g., OpenAI, local model)?
 - Are there any compliance or security requirements for handling pricing data?

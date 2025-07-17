@@ -1,7 +1,7 @@
 import pandas as pd
-from pricing_pipeline import run_pricing_pipeline
-from pricing.calculator import PricingCalculator
-from po_pricing_engine import LocationData
+from src.pricing_pipeline import run_pricing_pipeline
+from src.pricing.calculator import PricingCalculator
+from src.po_pricing_engine import LocationData
 
 
 def mock_config():
@@ -153,10 +153,10 @@ def test_published_price_in_pipeline(monkeypatch):
     df = pd.DataFrame(data)
     config = mock_config()
     # Patch get_published_price to return a known value
-    from pricing_pipeline import get_published_price
+    from src.pricing_pipeline import get_published_price
 
     monkeypatch.setattr(
-        "pricing_pipeline.get_published_price", lambda loc, y, m: 1234567
+        "src.pricing_pipeline.get_published_price", lambda loc, y, m: 1234567
     )
     outputs = run_pricing_pipeline(
         df, config, target_year=2025, target_month=7, verbose=False

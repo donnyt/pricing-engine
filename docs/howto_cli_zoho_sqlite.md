@@ -1,6 +1,6 @@
-# HOWTO: Using the CLI for Pricing and Zoho Analytics Data
+# HOWTO: Using the CLI and API for Pricing Engine
 
-This guide explains how to use the CLI to fetch data from Zoho Analytics, store it in SQLite, and run the pricing engine (with LLM reasoning support).
+This guide explains how to use the CLI to fetch data from Zoho Analytics, store it in SQLite, run the pricing engine, and use the unified FastAPI application for API access and Google Chat integration.
 
 ---
 
@@ -25,24 +25,50 @@ export OPENAI_API_KEY="sk-..."  # For LLM reasoning
 
 ---
 
-## 3. Fetch and Save Zoho Analytics Data
-Fetch a report (e.g., `pnl_sms_by_month`) and save it to SQLite:
-```sh
-python3 src/cli.py fetch-and-save --report pnl_sms_by_month --year 2025 --month 5
-```
-- Data is saved to `zoho_data.db` under the table matching the report name.
+## 3. CLI Structure
+
+The pricing engine CLI has been split into specialized modules for better organization:
+
+### Zoho Analytics CLI (`src/zoho_cli.py`)
+Handles all Zoho Analytics data operations:
+- Fetch and save data from Zoho Analytics
+- Load and preview data from SQLite
+- Clear and reload data for specific periods
+
+### Pricing Engine CLI (`src/pricing_cli.py`)
+Handles all pricing-related operations:
+- Run pricing pipeline for locations
+- Check pricing with verbose output
+- Format and display pricing results
+
+### Main CLI Wrapper (`src/cli.py`)
+Provides a unified entry point that directs to the appropriate specialized module.
 
 ---
 
-## 4. Preview Data
+## 4. Upsert Zoho Analytics Data (Recommended)
+Upsert a report (e.g., `pnl_sms_by_month`) to SQLite (insert if not exists, delete and reinsert if exists):
+```sh
+# Single month
+python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
+
+# Range of months
+python3 src/zoho_cli.py upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
+```
+- Data is saved to `data/zoho_data.db` under the table matching the report name.
+- If data already exists for the specified period, it will be deleted and replaced with fresh data from Zoho.
+
+---
+
+## 5. Preview Data
 Print the first few rows of a table:
 ```sh
-python3 src/cli.py load --report pnl_sms_by_month
+python3 src/zoho_cli.py load --report pnl_sms_by_month
 ```
 
 ---
 
-## 5. Run the Pricing Pipeline CLI
+## 6. Run the Pricing Pipeline CLI
 You can run the pricing pipeline for all locations or a single location, for any month/year, and with LLM reasoning output.
 
 ### Parameters
@@ -54,19 +80,19 @@ You can run the pricing pipeline for all locations or a single location, for any
 ### Usage Examples
 - **All locations, current month:**
   ```sh
-  python3 src/cli.py run-pipeline
+  python3 src/pricing_cli.py run-pipeline
   ```
 - **All locations, specific month/year:**
   ```sh
-  python3 src/cli.py run-pipeline --year 2024 --month 7
+  python3 src/pricing_cli.py run-pipeline --year 2024 --month 7
   ```
 - **Single location (e.g., Pacific Place), current month:**
   ```sh
-  python3 src/cli.py run-pipeline --location "Pacific Place"
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place"
   ```
 - **Single location, specific month/year, with LLM reasoning:**
   ```sh
-  python3 src/cli.py run-pipeline --location "Pacific Place" --year 2024 --month 7 --verbose
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --year 2024 --month 7 --verbose
   ```
 
 #### LLM Reasoning Output
@@ -84,7 +110,73 @@ You can run the pricing pipeline for all locations or a single location, for any
 
 ---
 
-## 6. Example Workflow
+## 7. Unified FastAPI Application
+
+The project now uses a unified FastAPI application (`src/app.py`) that combines both API endpoints and Google Chat webhook functionality.
+
+### Starting the Server
+```sh
+source venv/bin/activate
+PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Available Endpoints
+
+#### API Endpoints (REST API)
+- **Health Check**: `GET /api/v1/health`
+- **Single Location Pricing**: `GET /api/v1/pricing/{location}?year=2024&month=7`
+- **All Locations Pricing**: `GET /api/v1/pricing?year=2024&month=7`
+
+#### Webhook Endpoints
+- **Google Chat Webhook**: `POST /webhook/google-chat`
+
+#### Documentation
+- **API Documentation**: `GET /docs` (Swagger UI)
+- **OpenAPI Spec**: `GET /openapi.json`
+
+### Example API Usage
+
+#### Get pricing for a specific location:
+```sh
+curl "http://localhost:8000/api/v1/pricing/ASG%20Tower?month=7"
+```
+
+#### Get pricing for all locations:
+```sh
+curl "http://localhost:8000/api/v1/pricing"
+```
+
+#### Test Google Chat webhook:
+```sh
+curl -X POST http://localhost:8000/webhook/google-chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "MESSAGE",
+    "eventTime": "2024-01-01T00:00:00Z",
+    "space": {"name": "spaces/test"},
+    "user": {"name": "users/test"},
+    "message": {"text": "/po-price Chubb Square"}
+  }'
+```
+
+### API Response Format
+The API returns JSON responses with the following structure:
+```json
+{
+  "building_name": "ASG Tower",
+  "occupancy_pct": 0.65,
+  "breakeven_occupancy_pct": 0.4,
+  "recommended_price": 2800000.0,
+  "losing_money": false,
+  "manual_override": null,
+  "llm_reasoning": "[LLM reasoning unavailable: OPENAI_API_KEY not set]",
+  "published_price": 2800000.0
+}
+```
+
+---
+
+## 8. Example Workflow
 ```sh
 # Set credentials
 export ZOHO_CLIENT_ID=...
@@ -95,19 +187,25 @@ export OPENAI_API_KEY=...
 # Install dependencies
 pip install -r requirements.txt
 
-# Fetch and save data
-python3 src/cli.py fetch-and-save --report pnl_sms_by_month --year 2025 --month 5
+# Upsert data (recommended)
+python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
 
 # Preview data
-python3 src/cli.py load --report pnl_sms_by_month
+python3 src/zoho_cli.py load --report pnl_sms_by_month
 
 # Run pricing pipeline for a single location with LLM reasoning
-python3 src/cli.py run-pipeline --location "Pacific Place" --verbose
+python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
+
+# Start the unified FastAPI server
+source venv/bin/activate
+PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## 7. Notes
+## 9. Notes
 - The CLI expects to be run from the project root directory.
+- The unified FastAPI app serves both API endpoints and Google Chat webhook on port 8000.
 - For troubleshooting, ensure your environment variables are set and dependencies are installed.
 - You can add support for more reports by extending the CLI and integration code.
+- The Google Chat webhook endpoint (`/webhook/google-chat`) is designed to handle Google Chat bot events and responds with formatted text messages.
