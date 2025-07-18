@@ -79,6 +79,43 @@ def delete_from_sqlite_by_range(
         conn.commit()
 
 
+def delete_from_sqlite_by_date(
+    table_name: str, date: str, db_path: str = "data/zoho_data.db"
+):
+    """
+    Delete rows from a SQLite table for a specific date.
+    Args:
+        table_name: Name of the SQLite table
+        date: Date in 'YYYY-MM-DD' format
+        db_path: Path to the SQLite database file
+    """
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(f"DELETE FROM {table_name} WHERE date = ?", (date,))
+        conn.commit()
+
+
+def delete_from_sqlite_by_date_range(
+    table_name: str,
+    start_date: str,
+    end_date: str,
+    db_path: str = "data/zoho_data.db",
+):
+    """
+    Delete rows from a SQLite table for a range of dates (inclusive).
+    Args:
+        table_name: Name of the SQLite table
+        start_date: Start date in 'YYYY-MM-DD' format
+        end_date: End date in 'YYYY-MM-DD' format
+        db_path: Path to the SQLite database file
+    """
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            f"DELETE FROM {table_name} WHERE date >= ? AND date <= ?",
+            (start_date, end_date),
+        )
+        conn.commit()
+
+
 @dataclass
 class PublishedPrice:
     building_name: str

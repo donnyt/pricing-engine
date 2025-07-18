@@ -31,22 +31,23 @@ class PricingCalculator:
         )
         step2, dynamic_multiplier = self._apply_dynamic_multiplier(
             step1,
-            location_data.po_seats_actual_occupied_pct,
+            location_data.po_seats_occupied_actual_pct,
             rules.dynamic_pricing_tiers,
         )
         step3 = self._apply_margin_of_safety(step2, rules.margin_of_safety)
-        # Only round at the end
+        step4_rounded = self._round_to_nearest(step3)
         step4 = self._enforce_price_bounds(
-            self._round_to_nearest(step3), rules.min_price, rules.max_price
+            step4_rounded, rules.min_price, rules.max_price
         )
-        losing_money = (location_data.po_seats_actual_occupied_pct or 0) < (
+
+        losing_money = (location_data.po_seats_occupied_actual_pct or 0) < (
             target_breakeven_occupancy or 0
         )
         return PricingResult(
             location=location_data.name,
             recommended_price=step4,
             manual_override=None,
-            latest_occupancy=location_data.po_seats_actual_occupied_pct,
+            latest_occupancy=location_data.po_seats_occupied_actual_pct,
             breakeven_occupancy_pct=target_breakeven_occupancy,
             is_losing_money=losing_money,
             reasoning=None,

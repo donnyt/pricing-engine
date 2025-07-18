@@ -34,6 +34,7 @@ Handles all Zoho Analytics data operations:
 - Fetch and save data from Zoho Analytics
 - Load and preview data from SQLite
 - Clear and reload data for specific periods
+- **Manage daily occupancy data from the `private_office_occupancies_by_building` table**
 
 ### Pricing Engine CLI (`src/pricing_cli.py`)
 Handles all pricing-related operations:
@@ -47,6 +48,8 @@ Provides a unified entry point that directs to the appropriate specialized modul
 ---
 
 ## 4. Upsert Zoho Analytics Data (Recommended)
+
+### Monthly Data (pnl_sms_by_month)
 Upsert a report (e.g., `pnl_sms_by_month`) to SQLite (insert if not exists, delete and reinsert if exists):
 ```sh
 # Single month
@@ -55,15 +58,43 @@ python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
 # Range of months
 python3 src/zoho_cli.py upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
 ```
-- Data is saved to `data/zoho_data.db` under the table matching the report name.
-- If data already exists for the specified period, it will be deleted and replaced with fresh data from Zoho.
+
+### Daily Occupancy Data (private_office_occupancies_by_building)
+**NEW**: The pricing engine now uses daily occupancy data for more responsive pricing calculations. You can fetch and manage daily occupancy data using these commands:
+
+```sh
+# Fetch daily occupancy data for today (default)
+python3 src/zoho_cli.py fetch-daily-occupancy
+
+# Fetch daily occupancy data for a specific date
+python3 src/zoho_cli.py fetch-daily-occupancy --date 2025-01-15
+
+# Upsert daily occupancy data for today (default) - recommended for production
+python3 src/zoho_cli.py upsert-daily-occupancy
+
+# Upsert daily occupancy data for a specific date
+python3 src/zoho_cli.py upsert-daily-occupancy --date 2025-01-15
+
+# Upsert daily occupancy data for a date range
+python3 src/zoho_cli.py upsert-daily-occupancy-range --start-date 2025-01-01 --end-date 2025-01-31
+```
+
+**Note**:
+- Data is saved to `data/zoho_data.db` under the table `private_office_occupancies_by_building`.
+- The `upsert` commands are recommended for production use as they ensure data freshness by deleting and reinserting existing data.
+- Date format must be `YYYY-MM-DD` (e.g., `2025-01-15`).
+- When no date is specified, the commands default to today's date.
 
 ---
 
 ## 5. Preview Data
 Print the first few rows of a table:
 ```sh
+# Preview monthly data
 python3 src/zoho_cli.py load --report pnl_sms_by_month
+
+# Preview daily occupancy data
+python3 src/zoho_cli.py load --report private_office_occupancies_by_building
 ```
 
 ---
@@ -187,11 +218,15 @@ export OPENAI_API_KEY=...
 # Install dependencies
 pip install -r requirements.txt
 
-# Upsert data (recommended)
+# Upsert monthly data (recommended)
 python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
+
+# Upsert daily occupancy data (recommended for responsive pricing)
+python3 src/zoho_cli.py upsert-daily-occupancy
 
 # Preview data
 python3 src/zoho_cli.py load --report pnl_sms_by_month
+python3 src/zoho_cli.py load --report private_office_occupancies_by_building
 
 # Run pricing pipeline for a single location with LLM reasoning
 python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
@@ -203,9 +238,38 @@ PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-## 9. Notes
+## 9. Daily Occupancy Data Management
+
+### Why Daily Occupancy Data?
+The pricing engine now uses daily occupancy data instead of monthly averages for more responsive and accurate pricing calculations. This provides:
+- **Real-time insights**: Pricing based on the latest daily occupancy information
+- **Better accuracy**: More granular data for dynamic pricing decisions
+- **Responsive pricing**: Faster adaptation to occupancy changes
+
+### Daily Occupancy Data Commands Summary
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `fetch-daily-occupancy` | Fetch daily occupancy data (defaults to today) | `python3 src/zoho_cli.py fetch-daily-occupancy` |
+| `fetch-daily-occupancy --date` | Fetch for specific date | `python3 src/zoho_cli.py fetch-daily-occupancy --date 2025-01-15` |
+| `upsert-daily-occupancy` | Upsert daily occupancy data (defaults to today) | `python3 src/zoho_cli.py upsert-daily-occupancy` |
+| `upsert-daily-occupancy --date` | Upsert for specific date | `python3 src/zoho_cli.py upsert-daily-occupancy --date 2025-01-15` |
+| `upsert-daily-occupancy-range` | Upsert for date range | `python3 src/zoho_cli.py upsert-daily-occupancy-range --start-date 2025-01-01 --end-date 2025-01-31` |
+| `load --report private_office_occupancies_by_building` | Preview daily occupancy data | `python3 src/zoho_cli.py load --report private_office_occupancies_by_building` |
+
+### Best Practices for Daily Occupancy Data
+1. **Regular Updates**: Run `upsert-daily-occupancy` daily to keep data fresh
+2. **Batch Updates**: Use `upsert-daily-occupancy-range` for historical data or bulk updates
+3. **Data Validation**: Use `load --report private_office_occupancies_by_building` to verify data quality
+4. **Integration**: The pricing engine automatically uses the latest daily occupancy data for calculations
+
+---
+
+## 10. Notes
 - The CLI expects to be run from the project root directory.
 - The unified FastAPI app serves both API endpoints and Google Chat webhook on port 8000.
 - For troubleshooting, ensure your environment variables are set and dependencies are installed.
 - You can add support for more reports by extending the CLI and integration code.
 - The Google Chat webhook endpoint (`/webhook/google-chat`) is designed to handle Google Chat bot events and responds with formatted text messages.
+- **Daily occupancy data provides more responsive pricing calculations compared to monthly averages.**
+- **The pricing engine now automatically uses the latest daily occupancy data when available.**

@@ -11,117 +11,165 @@ from src.utils.parsing import parse_float, parse_int, parse_pct
 from src.pricing.calculator import PricingCalculator
 from src.sqlite_storage import get_published_price
 from src.llm_reasoning import generate_llm_reasoning
+from src.po_pricing_engine import load_merged_pricing_data
 
 
 def run_pricing_pipeline(
-    input_df: pd.DataFrame,
-    config: dict,
+    input_df: pd.DataFrame = None,
+    config: dict = None,
     target_year: int = None,
     target_month: int = None,
+    target_date: str = None,
     verbose: bool = False,
+    auto_fetch: bool = True,
+    target_location: str = None,
 ) -> List[PricingCLIOutput]:
     """
     Process the input data using pricing rules and return a list of PricingCLIOutput.
-    Only process the target year and month (default: current year/month).
-    For each location and target month, use the latest occupancy, but average the previous 3 months' expenses for calculation.
+    Updated to use daily occupancy data from private_office_occupancies_by_building table.
+
+    Args:
+        input_df: Optional DataFrame. If None, will load merged data from both tables.
+        config: Pricing configuration dictionary.
+        target_year: Target year for monthly data (default: current year).
+        target_month: Target month for monthly data (default: current month).
+        target_date: Target date for daily occupancy data in 'YYYY-MM-DD' format (default: today).
+        verbose: Whether to include LLM reasoning in output.
+        auto_fetch: Whether to automatically fetch daily occupancy data from Zoho if not available (default: True).
     """
     import datetime
 
     outputs: List[PricingCLIOutput] = []
+
+    # Load merged data if not provided
+    if input_df is None:
+
+        if auto_fetch:
+            input_df = load_merged_pricing_data(target_date, target_location)
+        else:
+            # Use a simpler load function that doesn't auto-fetch
+            input_df = load_merged_pricing_data_simple(target_date, target_location)
+
     if input_df.empty:
         return outputs
-    # Ensure year and month columns are present and sorted
-    if "year" not in input_df.columns or "month" not in input_df.columns:
-        raise ValueError("Input data must have 'year' and 'month' columns.")
-    input_df = input_df.sort_values(["building_name", "year", "month"])
-    # Normalize building names to avoid trailing spaces or invisible characters
-    input_df["building_name"] = input_df["building_name"].astype(str).str.strip()
-    # Ensure year and month columns are int for filtering
-    input_df["year"] = input_df["year"].astype(int)
-    input_df["month"] = input_df["month"].astype(int)
+
     # Default to current year/month if not provided
     now = datetime.datetime.now()
     if target_year is None:
         target_year = now.year
     if target_month is None:
         target_month = now.month
-    # Group by location and month, then filter to target month
-    grouped = input_df.groupby(["building_name", "year", "month"]).first().reset_index()
-    grouped = grouped[
-        (grouped["year"] == target_year) & (grouped["month"] == target_month)
-    ]
+
+    # Normalize building names to avoid trailing spaces or invisible characters
+    input_df["building_name"] = input_df["building_name"].astype(str).str.strip()
+
     calculator = PricingCalculator(config)
-    for _, row in grouped.iterrows():
+
+    # Process only unique locations to avoid duplicates
+    processed_locations = set()
+
+    for _, row in input_df.iterrows():
         loc = str(row["building_name"]).strip()
-        year = row["year"]
-        month = row["month"]
+
+        # Skip if we've already processed this location
+        if loc in processed_locations:
+            continue
+        processed_locations.add(loc)
+
         total_po_seats = parse_int(row.get("total_po_seats"))
+
         if not loc:
             continue
         if str(loc).strip().lower() == "holding":
             continue
         if total_po_seats == 0:
             continue
-        loc_df = input_df[(input_df["building_name"] == loc)]
 
-        # Get all previous months for this location (before target month)
-        prev_months = loc_df[
-            (loc_df["year"] < year)
-            | ((loc_df["year"] == year) & (loc_df["month"] < month))
-        ].sort_values(["year", "month"], ascending=False)
+        # Use daily occupancy data if available, fallback to monthly
+        daily_occupancy = row.get("po_seats_occupied_actual_pct")
+        monthly_occupancy = row.get("po_seats_actual_occupied_pct")
 
-        # Use up to 3 most recent months, but accept whatever is available
-        prev_months = prev_months.head(3)
+        # Prefer daily occupancy data, fallback to monthly
+        occupancy_pct = (
+            parse_pct(daily_occupancy)
+            if daily_occupancy is not None
+            else parse_pct(monthly_occupancy)
+        )
 
-        # Calculate average expense from available historical data
-        if not prev_months.empty:
-            avg_exp = (
-                prev_months["exp_total_po_expense_amount"]
-                .apply(lambda x: abs(parse_float(x)))
-                .mean()
+        # Debug output for Pacific Place
+        if loc.lower() == "pacific place":
+            print(f"\nPacific Place occupancy data:")
+            print(
+                f"  Daily occupancy (po_seats_occupied_actual_pct): {daily_occupancy}"
             )
-        else:
-            # Fallback to current month if no historical data
-            avg_exp = abs(parse_float(row.get("exp_total_po_expense_amount")))
+            print(
+                f"  Monthly occupancy (po_seats_actual_occupied_pct): {monthly_occupancy}"
+            )
+            print(f"  Final occupancy used: {occupancy_pct}%")
+            print(
+                f"  Data source: {'daily' if daily_occupancy is not None else 'monthly'}"
+            )
 
-        occupancy_val = parse_pct(row.get("po_seats_occupied_pct"))
-        raw_actual_occupancy = row.get("po_seats_actual_occupied_pct")
-        parsed_actual_occupancy = parse_pct(raw_actual_occupancy)
+        if occupancy_pct is None:
+            print(f"Warning: No occupancy data available for {loc}")
+            continue
+
+        # Calculate 3-month average expense for this location
+        location_monthly_data = input_df[
+            (input_df["building_name"] == loc)
+            & (input_df["year"] == target_year)
+            & (
+                input_df["month"].isin(
+                    [target_month - 2, target_month - 1, target_month]
+                )
+            )
+        ]
+
+        if location_monthly_data.empty:
+            # Fallback to current month if no 3-month data available
+            avg_exp = abs(parse_float(row.get("exp_total_po_expense_amount")))
+        else:
+            # Calculate 3-month average
+            expenses = [
+                abs(parse_float(exp))
+                for exp in location_monthly_data["exp_total_po_expense_amount"]
+            ]
+            avg_exp = sum(expenses) / len(expenses)
+
         # Fetch published price for this location/month
-        published_price = get_published_price(loc, year, month)
+        published_price = get_published_price(loc, target_year, target_month)
+
         location_data = LocationData(
             name=loc,
             exp_total_po_expense_amount=parse_float(
                 row.get("exp_total_po_expense_amount"), absolute=True
             ),
             avg_exp_total_po_expense_amount=avg_exp,
-            po_seats_actual_occupied_pct=parsed_actual_occupancy,
-            po_seats_occupied_pct=occupancy_val,
+            po_seats_occupied_actual_pct=occupancy_pct,
+            po_seats_occupied_pct=parse_float(row.get("po_seats_occupied_pct")),
             total_po_seats=total_po_seats,
             published_price=published_price,
         )
+
         try:
             pricing_result = calculator.calculate_pricing(location_data)
+
             # Prepare context for LLM reasoning
             llm_context = {
                 "location": loc,
                 "recommended_price": pricing_result.final_price,
-                "occupancy_pct": location_data.po_seats_actual_occupied_pct,
+                "occupancy_pct": location_data.po_seats_occupied_actual_pct,
                 "breakeven_occupancy_pct": pricing_result.breakeven_occupancy_pct,
                 "published_price": location_data.published_price,
             }
-            llm_reasoning = generate_llm_reasoning(llm_context)
+
+            llm_reasoning = generate_llm_reasoning(llm_context) if verbose else None
+
             output = PricingCLIOutput(
                 building_name=loc,
-                occupancy_pct=(
-                    round(location_data.po_seats_actual_occupied_pct, 2)
-                    if location_data.po_seats_actual_occupied_pct is not None
-                    else None
-                ),
-                breakeven_occupancy_pct=(
-                    round(pricing_result.breakeven_occupancy_pct, 2)
-                    if pricing_result.breakeven_occupancy_pct is not None
-                    else None
+                occupancy_pct=round(location_data.po_seats_occupied_actual_pct, 2),
+                breakeven_occupancy_pct=round(
+                    pricing_result.breakeven_occupancy_pct, 2
                 ),
                 dynamic_multiplier=pricing_result.dynamic_multiplier,
                 recommended_price=pricing_result.final_price,
@@ -135,4 +183,96 @@ def run_pricing_pipeline(
             print(
                 f"ERROR: Calculation failed for location '{loc}' (row: {row.to_dict()}): {e}"
             )
+
     return outputs
+
+
+def load_merged_pricing_data_simple(
+    target_date: str = None, target_location: str = None
+):
+    """
+    Simple version of load_merged_pricing_data that doesn't auto-fetch from Zoho.
+    Used when auto_fetch=False in run_pricing_pipeline.
+    """
+    from src.sqlite_storage import load_from_sqlite
+    from datetime import date, datetime, timedelta
+    import pandas as pd
+
+    # Use today's date if not specified
+    if target_date is None:
+        target_date = date.today().strftime("%Y-%m-%d")
+
+    # Parse target date to get year and month
+    target_datetime = datetime.strptime(target_date, "%Y-%m-%d")
+    target_year = target_datetime.year
+    target_month = target_datetime.month
+
+    # Calculate 3 months prior for expense averaging
+    three_months_ago = target_datetime - timedelta(days=90)
+    start_year = three_months_ago.year
+    start_month = three_months_ago.month
+
+    try:
+        # Load monthly expense data for the last 3 months
+        monthly_df = load_from_sqlite("pnl_sms_by_month")
+
+        # Filter to last 3 months
+        monthly_df = monthly_df[
+            ((monthly_df["year"] == target_year) & (monthly_df["month"] >= start_month))
+            | (
+                (monthly_df["year"] == start_year)
+                & (monthly_df["month"] >= start_month)
+            )
+        ]
+
+        # Filter by location if specified
+        if target_location:
+            monthly_df = monthly_df[
+                monthly_df["building_name"].str.lower() == target_location.lower()
+            ]
+
+        print(
+            f"Loaded {len(monthly_df)} rows from monthly expense data (last 3 months)."
+        )
+    except Exception as e:
+        print(f"Error loading monthly expense data: {e}")
+        monthly_df = pd.DataFrame()
+
+    try:
+        # Load daily occupancy data for target date and location
+        daily_df = load_from_sqlite("private_office_occupancies_by_building")
+
+        # Filter to target date
+        if not daily_df.empty and "date" in daily_df.columns:
+            daily_df = daily_df[daily_df["date"] == target_date]
+
+            # Filter by location if specified
+            if target_location:
+                daily_df = daily_df[
+                    daily_df["building_name"].str.lower() == target_location.lower()
+                ]
+
+            print(
+                f"Loaded {len(daily_df)} rows from daily occupancy data for {target_date}."
+            )
+    except Exception as e:
+        print(f"Error loading daily occupancy data: {e}")
+        daily_df = pd.DataFrame()
+
+    # Merge the dataframes on building_name
+    if not monthly_df.empty and not daily_df.empty:
+        merged_df = pd.merge(
+            monthly_df,
+            daily_df,
+            on="building_name",
+            how="left",
+            suffixes=("_monthly", "_daily"),
+        )
+        print(f"Merged data contains {len(merged_df)} rows.")
+        return merged_df
+    elif not monthly_df.empty:
+        print("Using only monthly data (no daily occupancy data available).")
+        return monthly_df
+    else:
+        print("No data available from either table.")
+        return pd.DataFrame()

@@ -23,13 +23,24 @@ Usage:
 import argparse
 import pandas as pd
 import datetime
-from src.sqlite_storage import load_from_sqlite
-from src.po_pricing_engine import (
-    load_pricing_rules,
-    PricingCLIOutput,
-)
-from src.pricing_pipeline import run_pricing_pipeline
-from src.utils.parsing import format_price_int
+
+try:
+    from src.sqlite_storage import load_from_sqlite
+    from src.po_pricing_engine import (
+        load_pricing_rules,
+        PricingCLIOutput,
+    )
+    from src.pricing_pipeline import run_pricing_pipeline
+    from src.utils.parsing import format_price_int
+except ImportError:
+    # Fallback for when running the script directly
+    from sqlite_storage import load_from_sqlite
+    from po_pricing_engine import (
+        load_pricing_rules,
+        PricingCLIOutput,
+    )
+    from pricing_pipeline import run_pricing_pipeline
+    from utils.parsing import format_price_int
 
 
 def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
@@ -53,34 +64,25 @@ def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
     return "\n".join(lines)
 
 
-def run_pipeline(verbose=False, year=None, month=None, location=None):
+def run_pipeline(
+    verbose=False, year=None, month=None, location=None, no_auto_fetch=False
+):
     """Run the pricing pipeline for specified parameters."""
-    try:
-        df = load_from_sqlite("pnl_sms_by_month")
-    except Exception as e:
-        print(f"Error loading data from SQLite: {e}")
-        df = pd.DataFrame()
-
     now = datetime.datetime.now()
     target_year = int(year) if year is not None else now.year
     target_month = int(month) if month is not None else now.month
 
-    if not df.empty:
-        df["year"] = df["year"].astype(int)
-        df["month"] = df["month"].astype(int)
-
     config = load_pricing_rules()
 
-    if location:
-        # Normalize location for matching
-        normalized_location = location.strip().lower()
-        df = df[
-            df["building_name"].astype(str).str.strip().str.lower()
-            == normalized_location
-        ]
-
+    # Let the pipeline handle data loading with merged daily occupancy data
     outputs = run_pricing_pipeline(
-        df, config, target_year=target_year, target_month=target_month, verbose=verbose
+        input_df=None,  # Let pipeline load merged data
+        config=config,
+        target_year=target_year,
+        target_month=target_month,
+        verbose=verbose,
+        auto_fetch=not no_auto_fetch,
+        target_location=location,  # Pass location for targeted data loading
     )
 
     for output in outputs:
@@ -135,6 +137,11 @@ def main():
         type=str,
         help="Run for a single location (default: all locations)",
     )
+    pipeline_parser.add_argument(
+        "--no-auto-fetch",
+        action="store_true",
+        help="Disable automatic fetching of daily occupancy data from Zoho Analytics",
+    )
 
     check_parser = subparsers.add_parser(
         "check-pricing",
@@ -150,6 +157,7 @@ def main():
             year=args.year,
             month=args.month,
             location=args.location,
+            no_auto_fetch=args.no_auto_fetch,
         )
     elif args.command == "check-pricing":
         check_pricing(year=args.year, month=args.month)

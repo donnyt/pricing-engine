@@ -18,7 +18,8 @@ def parse_int(val: Any) -> int:
     Convert the value to an integer after removing commas. Returns 0 if conversion fails.
     """
     try:
-        return int(str(val).replace(",", ""))
+        # Convert to float first to handle decimal strings, then to int
+        return int(float(str(val).replace(",", "")))
     except Exception:
         return 0
 

@@ -22,14 +22,32 @@ Reports supported: pnl_sms_by_month (add more as needed)
 """
 
 import argparse
-from src.zoho_integration import (
-    fetch_pnl_sms_by_month_dataclasses,
-    clear_and_reload_pnl_sms_by_month,
-    clear_and_reload_pnl_sms_by_month_range,
-    upsert_pnl_sms_by_month,
-    upsert_pnl_sms_by_month_range,
-)
-from src.sqlite_storage import save_to_sqlite, load_from_sqlite
+
+try:
+    from src.zoho_integration import (
+        fetch_pnl_sms_by_month_dataclasses,
+        clear_and_reload_pnl_sms_by_month,
+        clear_and_reload_pnl_sms_by_month_range,
+        upsert_pnl_sms_by_month,
+        upsert_pnl_sms_by_month_range,
+        fetch_private_office_occupancies_by_building_dataclasses,
+        upsert_private_office_occupancies_by_building,
+        upsert_private_office_occupancies_by_building_range,
+    )
+    from src.sqlite_storage import save_to_sqlite, load_from_sqlite
+except ImportError:
+    # Fallback for when running the script directly
+    from zoho_integration import (
+        fetch_pnl_sms_by_month_dataclasses,
+        clear_and_reload_pnl_sms_by_month,
+        clear_and_reload_pnl_sms_by_month_range,
+        upsert_pnl_sms_by_month,
+        upsert_pnl_sms_by_month_range,
+        fetch_private_office_occupancies_by_building_dataclasses,
+        upsert_private_office_occupancies_by_building,
+        upsert_private_office_occupancies_by_building_range,
+    )
+    from sqlite_storage import save_to_sqlite, load_from_sqlite
 
 
 def upsert_data(report: str, year: int = None, month: int = None):
@@ -66,6 +84,13 @@ def fetch_and_save(report: str, year: int = None, month: int = None):
         rows = fetch_pnl_sms_by_month_dataclasses(year, month)
         save_to_sqlite("pnl_sms_by_month", rows)
         print(f"Saved {len(rows)} rows to SQLite table 'pnl_sms_by_month'.")
+    elif report == "private_office_occupancies_by_building":
+        # For daily occupancy data, we need a date parameter instead of year/month
+        # This will be handled by a separate CLI command with --date parameter
+        print(
+            "Use 'fetch-daily-occupancy' command for private_office_occupancies_by_building"
+        )
+        return
     else:
         print(f"Report '{report}' not supported yet.")
 
@@ -76,8 +101,33 @@ def load_and_preview(report: str):
         df = load_from_sqlite("pnl_sms_by_month")
         print(df)
         print(f"Total rows: {len(df)}")
+    elif report == "private_office_occupancies_by_building":
+        df = load_from_sqlite("private_office_occupancies_by_building")
+        print(df)
+        print(f"Total rows: {len(df)}")
     else:
         print(f"Report '{report}' not supported yet.")
+
+
+def fetch_daily_occupancy(date: str):
+    """Fetch daily occupancy data from Zoho Analytics and save to SQLite."""
+    print(f"Fetching daily occupancy data for date: {date}")
+    try:
+        rows = fetch_private_office_occupancies_by_building_dataclasses(date)
+        save_to_sqlite("private_office_occupancies_by_building", rows)
+        print(
+            f"Saved {len(rows)} rows to SQLite table 'private_office_occupancies_by_building' for date {date}."
+        )
+        if rows:
+            print("First row structure:")
+            print(rows[0])
+            print("\nAll field names:")
+            from dataclasses import fields
+
+            print([field.name for field in fields(rows[0])])
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        print("This is expected if Zoho credentials are not configured.")
 
 
 def clear_and_reload(report: str, year: int = None, month: int = None):
@@ -107,6 +157,32 @@ def clear_and_reload_range(
         )
     else:
         print(f"Report '{report}' not supported yet.")
+
+
+def upsert_daily_occupancy(date: str):
+    """Upsert daily occupancy data from Zoho Analytics to SQLite."""
+    print(f"Upserting daily occupancy data for date: {date}")
+    try:
+        n = upsert_private_office_occupancies_by_building(date)
+        print(
+            f"Upserted {n} rows for date {date} in 'private_office_occupancies_by_building'."
+        )
+    except Exception as e:
+        print(f"Error upserting data: {e}")
+        print("This is expected if Zoho credentials are not configured.")
+
+
+def upsert_daily_occupancy_range(start_date: str, end_date: str):
+    """Upsert daily occupancy data for a range of dates from Zoho Analytics to SQLite."""
+    print(f"Upserting daily occupancy data for range: {start_date} to {end_date}")
+    try:
+        n = upsert_private_office_occupancies_by_building_range(start_date, end_date)
+        print(
+            f"Upserted {n} rows for range {start_date} to {end_date} in 'private_office_occupancies_by_building'."
+        )
+    except Exception as e:
+        print(f"Error upserting data: {e}")
+        print("This is expected if Zoho credentials are not configured.")
 
 
 def main():
@@ -202,6 +278,39 @@ def main():
         "--end-month", type=int, required=True, help="End month"
     )
 
+    # New command for daily occupancy data
+    fetch_daily_occupancy_parser = subparsers.add_parser(
+        "fetch-daily-occupancy", help="Fetch daily occupancy data from Zoho Analytics"
+    )
+    fetch_daily_occupancy_parser.add_argument(
+        "--date",
+        help="Date in YYYY-MM-DD format (e.g., 2025-01-15). Defaults to today's date.",
+    )
+
+    # New commands for upserting daily occupancy data
+    upsert_daily_occupancy_parser = subparsers.add_parser(
+        "upsert-daily-occupancy", help="Upsert daily occupancy data from Zoho Analytics"
+    )
+    upsert_daily_occupancy_parser.add_argument(
+        "--date",
+        help="Date in YYYY-MM-DD format (e.g., 2025-01-15). Defaults to today's date.",
+    )
+
+    upsert_daily_occupancy_range_parser = subparsers.add_parser(
+        "upsert-daily-occupancy-range",
+        help="Upsert daily occupancy data for a range of dates",
+    )
+    upsert_daily_occupancy_range_parser.add_argument(
+        "--start-date",
+        required=True,
+        help="Start date in YYYY-MM-DD format (e.g., 2025-01-01)",
+    )
+    upsert_daily_occupancy_range_parser.add_argument(
+        "--end-date",
+        required=True,
+        help="End date in YYYY-MM-DD format (e.g., 2025-01-31)",
+    )
+
     args = parser.parse_args()
     if args.command == "upsert":
         upsert_data(args.report, args.year, args.month)
@@ -227,6 +336,22 @@ def main():
             args.end_year,
             args.end_month,
         )
+    elif args.command == "fetch-daily-occupancy":
+        from datetime import date
+
+        target_date = args.date or date.today().strftime("%Y-%m-%d")
+        fetch_daily_occupancy(target_date)
+    elif args.command == "upsert-daily-occupancy":
+        from datetime import date
+
+        target_date = args.date or date.today().strftime("%Y-%m-%d")
+        upsert_daily_occupancy(target_date)
+    elif args.command == "upsert-daily-occupancy-range":
+        from datetime import date
+
+        start_date = args.start_date or date.today().strftime("%Y-%m-%d")
+        end_date = args.end_date or date.today().strftime("%Y-%m-%d")
+        upsert_daily_occupancy_range(start_date, end_date)
     else:
         parser.print_help()
 

@@ -5,11 +5,20 @@ import io
 from typing import List, Optional, Type, Any
 from dataclasses import dataclass, make_dataclass, fields
 import re
-from src.sqlite_storage import (
-    delete_from_sqlite_by_year_month,
-    delete_from_sqlite_by_range,
-    save_to_sqlite,
-)
+
+try:
+    from src.sqlite_storage import (
+        delete_from_sqlite_by_year_month,
+        delete_from_sqlite_by_range,
+        save_to_sqlite,
+    )
+except ImportError:
+    # Fallback for when running the script directly
+    from sqlite_storage import (
+        delete_from_sqlite_by_year_month,
+        delete_from_sqlite_by_range,
+        save_to_sqlite,
+    )
 import time
 
 
@@ -211,6 +220,85 @@ def upsert_pnl_sms_by_month_range(
     return total_rows
 
 
+def fetch_private_office_occupancies_by_building_dataclasses(date: str) -> List[Any]:
+    """
+    Fetch private_office_occupancies_by_building as dataclass instances for a specific date.
+    Args:
+        date: Date in 'YYYY-MM-DD' format (e.g., '2025-12-31')
+    """
+    endpoint_path = "/sms.go-work.com/private_office_occupancies_by_building"
+    criteria = f"(\"date\"='{date}')"
+    return fetch_zoho_table_as_dataclasses(
+        table_name="PrivateOfficeOccupancyByBuildingRow",
+        endpoint_path=endpoint_path,
+        criteria=criteria,
+    )
+
+
+def upsert_private_office_occupancies_by_building(date: str):
+    """
+    Upsert private_office_occupancies_by_building data for a specific date.
+    If data exists for the given date, it will be deleted and reinserted.
+    If no data exists, it will be inserted.
+    """
+    try:
+        from src.sqlite_storage import delete_from_sqlite_by_date, save_to_sqlite
+    except ImportError:
+        from sqlite_storage import delete_from_sqlite_by_date, save_to_sqlite
+
+    # First, delete any existing data for this date
+    delete_from_sqlite_by_date("private_office_occupancies_by_building", date)
+
+    # Fetch fresh data from Zoho
+    rows = fetch_private_office_occupancies_by_building_dataclasses(date)
+
+    # Save to SQLite (this will insert the new data)
+    save_to_sqlite("private_office_occupancies_by_building", rows, if_exists="append")
+
+    return len(rows)
+
+
+def upsert_private_office_occupancies_by_building_range(start_date: str, end_date: str):
+    """
+    Upsert private_office_occupancies_by_building data for a range of dates.
+    For each date in the range, if data exists it will be deleted and reinserted.
+    If no data exists, it will be inserted.
+    """
+    try:
+        from src.sqlite_storage import delete_from_sqlite_by_date_range, save_to_sqlite
+    except ImportError:
+        from sqlite_storage import delete_from_sqlite_by_date_range, save_to_sqlite
+    from datetime import datetime, timedelta
+
+    # First, delete any existing data for the entire range
+    delete_from_sqlite_by_date_range(
+        "private_office_occupancies_by_building", start_date, end_date
+    )
+
+    # Generate list of dates in the range
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+    dates = []
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        dates.append(current_dt.strftime("%Y-%m-%d"))
+        current_dt += timedelta(days=1)
+
+    # Fetch and save data for each date
+    total_rows = 0
+    for i, date in enumerate(dates):
+        if i > 0:
+            time.sleep(2)  # Add delay to avoid API rate limiting
+        rows = fetch_private_office_occupancies_by_building_dataclasses(date)
+        save_to_sqlite(
+            "private_office_occupancies_by_building", rows, if_exists="append"
+        )
+        total_rows += len(rows)
+
+    return total_rows
+
+
 if __name__ == "__main__":
     # Quick test: fetch May 2025 pnl_sms_by_month report and print first 2 rows as dataclasses
     try:
@@ -221,3 +309,22 @@ if __name__ == "__main__":
             print("No data returned.")
     except Exception as e:
         print(f"Test failed: {e}")
+
+    # Test daily occupancy data fetch
+    print("\n--- Testing Daily Occupancy Data ---")
+    try:
+        # Test with a recent date - you can change this to a date that has data
+        test_date = "2025-01-15"  # Change this to a date with actual data
+        occupancy_rows = fetch_private_office_occupancies_by_building_dataclasses(
+            test_date
+        )
+        print(f"Fetched {len(occupancy_rows)} rows for date {test_date}")
+        if occupancy_rows:
+            print("First row structure:")
+            print(occupancy_rows[0])
+            print("\nAll field names:")
+            print([field.name for field in fields(occupancy_rows[0])])
+        else:
+            print("No data returned for this date.")
+    except Exception as e:
+        print(f"Daily occupancy test failed: {e}")

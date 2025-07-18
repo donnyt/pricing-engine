@@ -12,8 +12,9 @@ class LocationData(BaseModel):
     name: str
     exp_total_po_expense_amount: float
     avg_exp_total_po_expense_amount: float
-    po_seats_actual_occupied_pct: float
-    po_seats_occupied_pct: Optional[float] = None
+    # Updated to use daily occupancy data from private_office_occupancies_by_building table
+    po_seats_occupied_actual_pct: float  # Daily occupancy percentage
+    po_seats_occupied_pct: Optional[float] = None  # Keep for backward compatibility
     total_po_seats: int
     published_price: Optional[float] = None
 
