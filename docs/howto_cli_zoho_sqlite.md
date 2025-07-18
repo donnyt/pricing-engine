@@ -85,6 +85,17 @@ This guide explains how to fetch data from Zoho Analytics, store it in SQLite, r
 - `--verbose`: Show detailed output and LLM reasoning
 - `--no-auto-fetch`: Disable automatic fetching from Zoho if data is missing
 
+### Output Fields
+- **Latest Occupancy**: 7-day average prior to the anchor date
+- **Actual Breakeven Occupancy**: Current breakeven occupancy based on actual costs and sold prices
+- **Sold Price/Seat (Actual)**: Current sold price per seat (rounded to nearest 10,000)
+- **Target Breakeven Occupancy**: Goal breakeven occupancy (Smart Target or Static Target)
+- **Dynamic Multiplier**: Applied based on occupancy bands
+- **Published Price**: Current/last published price for the location
+- **Recommended Price**: Suggested price per seat
+- **Bottom Price**: Breakeven price rounded up to nearest 50,000 (if already a multiple of 50,000, stays unchanged)
+- **Smart Target Indicator**: Shows "(Smart Target)" or "(Static Target)" next to target breakeven occupancy
+
 ### Usage Examples
 - **All locations, using today as anchor:**
   ```sh
@@ -104,6 +115,21 @@ This guide explains how to fetch data from Zoho Analytics, store it in SQLite, r
   ```
 
 **Tip:** Use `--verbose` to see LLM-generated explanations for each price recommendation.
+
+### Smart Target Breakeven Occupancy
+The pricing engine supports dynamic "smart target" breakeven occupancy calculation:
+- **Smart Targets**: Automatically calculated based on current profitability status
+  - More aggressive targets (3-7% reduction) for profitable locations
+  - Less aggressive targets (3-10% reduction) for losing money locations
+- **Static Targets**: Traditional fixed targets from configuration
+- **Configuration**: Enable/disable smart targets per location in `config/pricing_rules.yaml`
+- **Fallback**: Automatically falls back to static targets if smart target calculation fails
+
+### Bottom Price Rounding
+The bottom price (breakeven price) is rounded up to the nearest 50,000 for cleaner display:
+- **Examples**: 25,000 → 50,000, 75,000 → 100,000, 125,000 → 150,000
+- **Exact Multiples**: If the breakeven price is already a multiple of 50,000, it remains unchanged
+- **Examples**: 50,000 stays 50,000, 100,000 stays 100,000, 150,000 stays 150,000
 
 ---
 

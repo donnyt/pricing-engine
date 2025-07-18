@@ -39,27 +39,50 @@ class GoogleChatFormatter(ResponseFormatterInterface):
         location = pricing_data.building_name
         published_price = pricing_data.published_price
         recommended_price = pricing_data.recommended_price
+        breakeven_price = pricing_data.breakeven_price
+        sold_price_per_po_seat_actual = pricing_data.sold_price_per_po_seat_actual
         occupancy_pct = pricing_data.occupancy_pct
-        breakeven_pct = pricing_data.breakeven_occupancy_pct
         losing_money = pricing_data.losing_money
         llm_reasoning = pricing_data.llm_reasoning
         manual_override = pricing_data.manual_override
 
         # Format prices with thousands separators
-        def format_price(price: Optional[float]) -> str:
+        def format_price(price: Optional[float], nearest: int = 1) -> str:
             if price is None:
                 return "Not set"
-            return f"{price:,.0f}"
+            import math
+
+            return f"{int(round(price / nearest) * nearest):,}"
+
+        breakeven_target_pct = pricing_data.target_breakeven_occupancy_pct
+        breakeven_actual_pct = pricing_data.actual_breakeven_occupancy_pct
+
+        # Add smart target indicator
+        target_indicator = (
+            " (Smart Target)" if pricing_data.is_smart_target else " (Static Target)"
+        )
 
         # Build plain text response
         lines = [
-            f"🏢 {location.title()}",
+            f"\U0001f3e2 {location.title()}",
             "=" * (len(location) + 4),
             "",
-            f"Published Price: {format_price(published_price)}",
+            f"Latest Occupancy: {occupancy_pct:.1f}%",
+            (
+                f"Actual Breakeven Occupancy: {breakeven_actual_pct:.1f}%"
+                if breakeven_actual_pct is not None
+                else "Actual Breakeven Occupancy: Not available"
+            ),
+            f"Sold Price/Seat (Actual): {format_price(sold_price_per_po_seat_actual, 10000)}",
+            "",
+            f"Target Breakeven Occupancy: {breakeven_target_pct:.1f}%{target_indicator}",
+            (
+                f"Published Price: {format_price(published_price)} (Valid from Jul 2025)"
+                if published_price is not None
+                else "Published Price: Not set"
+            ),
             f"Recommended Price: {format_price(recommended_price)}",
-            f"Current Occupancy: {occupancy_pct:.1f}%",
-            f"Breakeven Occupancy: {breakeven_pct:.1f}%",
+            f"Bottom Price: {format_price(breakeven_price, 50000)}",
             "",
         ]
 

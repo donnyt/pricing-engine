@@ -9,6 +9,8 @@ The Pricing Engine is a Python tool for calculating recommended prices for priva
 - Calculates 7-day average occupancy for robust pricing
 - Computes recommended prices using configurable rules and dynamic multipliers
 - Supports published price history and LLM-based reasoning for recommendations
+- Smart target breakeven occupancy calculation based on profitability status
+- Bottom price rounding to nearest 50,000 for cleaner display
 - CLI for running the full pricing pipeline, checking data, and troubleshooting
 
 ---
@@ -23,6 +25,8 @@ The Pricing Engine is a Python tool for calculating recommended prices for priva
   - `published_prices`: Published price history
 - **7-Day Average Occupancy**: Used for pricing, calculated from the 7 days prior to the target date
 - **Published Price**: The current/last published price for each location
+- **Smart Target Breakeven**: Dynamic targets calculated based on current profitability status
+- **Bottom Price**: Breakeven price rounded to nearest 50,000 (exact multiples stay unchanged)
 
 ---
 
@@ -98,11 +102,33 @@ The main CLI is `src/pricing_cli.py`. You can run the pricing pipeline for all o
 ## Interpreting the Output
 
 - **Latest Occupancy**: 7-day average prior to the anchor date
-- **Breakeven Occupancy**: Minimum occupancy needed to break even
+- **Actual Breakeven Occupancy**: Current breakeven occupancy based on actual costs and sold prices
+- **Sold Price/Seat (Actual)**: Current sold price per seat (rounded to nearest 10,000)
+- **Target Breakeven Occupancy**: Goal breakeven occupancy (Smart Target or Static Target)
 - **Dynamic Multiplier**: Applied based on occupancy bands
+- **Published Price**: Current/last published price for the location
 - **Recommended Price**: Suggested price per seat
+- **Bottom Price**: Breakeven price rounded up to nearest 50,000 (exact multiples stay unchanged)
+- **Smart Target Indicator**: Shows "(Smart Target)" or "(Static Target)" next to target breakeven occupancy
 - **Reasoning**: (if verbose) LLM-generated explanation
 - **Debug Section**: For Pacific Place, a detailed breakdown of occupancy data and date range
+
+---
+
+## Key Features
+
+### Smart Target Breakeven Occupancy
+The pricing engine automatically calculates dynamic breakeven occupancy targets based on current profitability:
+- **Profitable Locations**: More aggressive targets (3-7% reduction) to push for better efficiency
+- **Losing Money Locations**: Less aggressive targets (3-10% reduction) for realistic improvement goals
+- **Configuration**: Enable/disable per location in `config/pricing_rules.yaml`
+- **Fallback**: Automatically uses static targets if smart target calculation fails
+
+### Bottom Price Rounding
+The bottom price (breakeven price) is rounded for cleaner display:
+- **Rounding**: Up to nearest 50,000 (e.g., 25,000 → 50,000, 75,000 → 100,000)
+- **Exact Multiples**: Values already at 50,000 multiples stay unchanged (e.g., 50,000 stays 50,000)
+- **Purpose**: Provides clear minimum viable price for pricing decisions
 
 ---
 

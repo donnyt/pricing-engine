@@ -17,6 +17,9 @@ class LocationData(BaseModel):
     po_seats_occupied_pct: Optional[float] = None  # Keep for backward compatibility
     total_po_seats: int
     published_price: Optional[float] = None
+    sold_price_per_po_seat_actual: Optional[float] = (
+        None  # Current sold price per PO seat (actual) from pnl_sms_by_month
+    )
 
 
 class PricingRules(BaseModel):
@@ -24,6 +27,7 @@ class PricingRules(BaseModel):
     max_price: Optional[float]
     margin_of_safety: float
     dynamic_pricing_tiers: List[DynamicPricingTier]
+    use_smart_target: bool = False  # Default to False for backward compatibility
 
 
 class PricingResult(BaseModel):
@@ -31,15 +35,21 @@ class PricingResult(BaseModel):
     recommended_price: float
     manual_override: Optional[Dict[str, Any]] = None
     latest_occupancy: float
-    breakeven_occupancy_pct: float
+    target_breakeven_occupancy_pct: float  # Renamed from breakeven_occupancy_pct
+    actual_breakeven_occupancy_pct: Optional[float] = (
+        None  # New: calculated from actuals
+    )
     is_losing_money: bool
     reasoning: Optional[str]
-    breakeven_price: Optional[float] = None
+    breakeven_price: Optional[float] = (
+        None  # This is the "bottom price" for user output
+    )
     base_price: Optional[float] = None
     price_with_margin: Optional[float] = None
     final_price: Optional[float] = None
     losing_money: Optional[bool] = None
     dynamic_multiplier: Optional[float] = None
+    is_smart_target: Optional[bool] = None  # Track whether smart targets were used
 
 
 class ManualOverrideInfo(BaseModel):
@@ -53,10 +63,20 @@ class ManualOverrideInfo(BaseModel):
 class PricingCLIOutput(BaseModel):
     building_name: str
     occupancy_pct: float
-    breakeven_occupancy_pct: float
+    target_breakeven_occupancy_pct: float  # Renamed from breakeven_occupancy_pct
+    actual_breakeven_occupancy_pct: Optional[float] = (
+        None  # New: calculated from actuals
+    )
     recommended_price: float
     losing_money: bool
     manual_override: Optional[ManualOverrideInfo] = None
     llm_reasoning: Optional[str] = None
     published_price: Optional[float] = None
     dynamic_multiplier: Optional[float] = None
+    breakeven_price: Optional[float] = (
+        None  # This is the "bottom price" for user output
+    )
+    sold_price_per_po_seat_actual: Optional[float] = (
+        None  # Actual sold price per PO seat, for display
+    )
+    is_smart_target: Optional[bool] = None  # Track whether smart targets were used

@@ -45,16 +45,50 @@ except ImportError:
 
 def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
     """Format pricing output for CLI display."""
+
+    def round_to_nearest(val, nearest):
+        if val is None:
+            return "Not set"
+        import math
+
+        return f"{int(round(val / nearest) * nearest):,}"
+
     lines = [f"{output.building_name}:"]
     lines.append(f"  Latest Occupancy: {output.occupancy_pct:.1f}%")
-    lines.append(f"  Breakeven Occupancy: {output.breakeven_occupancy_pct:.1f}%")
+    if output.actual_breakeven_occupancy_pct is not None:
+        lines.append(
+            f"  Actual Breakeven Occupancy: {output.actual_breakeven_occupancy_pct:.1f}%"
+        )
+    else:
+        lines.append(f"  Actual Breakeven Occupancy: Not available")
+    if output.sold_price_per_po_seat_actual is not None:
+        lines.append(
+            f"  Sold Price/Seat (Actual): {round_to_nearest(output.sold_price_per_po_seat_actual, 10000)}"
+        )
+    lines.append("")  # Empty line for separation
+    # Add smart target indicator
+    target_indicator = (
+        " (Smart Target)" if output.is_smart_target else " (Static Target)"
+    )
+    lines.append(
+        f"  Target Breakeven Occupancy: {output.target_breakeven_occupancy_pct:.1f}%{target_indicator}"
+    )
     if verbose and output.dynamic_multiplier is not None:
         lines.append(f"  Dynamic Multiplier: {output.dynamic_multiplier:.2f}x")
-    if hasattr(output, "published_price") and output.published_price is not None:
-        lines.append(f"  Published Price: {format_price_int(output.published_price)}")
+    if output.published_price is not None:
+        lines.append(
+            f"  Published Price: {format_price_int(output.published_price)} (Valid from Jul 2025)"
+        )
+    else:
+        lines.append(f"  Published Price: Not set")
     lines.append(f"  Recommended Price: {format_price_int(output.recommended_price)}")
+    if output.breakeven_price is not None:
+        lines.append(
+            f"  Bottom Price: {round_to_nearest(output.breakeven_price, 50000)}"
+        )
     if output.losing_money:
         lines.append("  ⚠️ ALERT: This location is losing money at current occupancy!")
+    lines.append("")  # Empty line for separation
     if (
         verbose
         and output.llm_reasoning

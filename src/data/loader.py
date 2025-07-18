@@ -49,6 +49,8 @@ class DataLoaderService:
         monthly_df = self.load_monthly_expense_data(
             target_year, target_month, target_location
         )
+        # Ensure sold_price_per_po_seat_actual is present for downstream use
+        # (pnl_sms_by_month should have this column)
 
         # Load daily occupancy data
         daily_df = self.load_daily_occupancy_data(

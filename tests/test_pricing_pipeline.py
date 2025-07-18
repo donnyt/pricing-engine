@@ -75,6 +75,9 @@ def test_three_month_average_and_no_negative_price():
     # Breakeven = 100000000 / (200 * 0.5) = 1000000, rounded to 1000000
     # Dynamic multiplier = 1.0, margin = 0.5, so 1000000 * 1.5 = 1500000, rounded to 1500000
     assert output.recommended_price == 1500000
+    assert output.target_breakeven_occupancy_pct == 50.0
+    # For this test, actual_breakeven_occupancy_pct is not available (no sold_price_per_po_seat_actual)
+    assert output.actual_breakeven_occupancy_pct is None
 
 
 def test_average_with_missing_months():
@@ -117,6 +120,8 @@ def test_average_with_missing_months():
     output = outputs[0]
     # Average = 100000000, breakeven = 1000000, margin = 0.5, so 1500000
     assert output.recommended_price == 1500000
+    assert output.target_breakeven_occupancy_pct == 50.0
+    assert output.actual_breakeven_occupancy_pct is None
 
 
 def test_pricing_calculator_direct():
@@ -129,12 +134,16 @@ def test_pricing_calculator_direct():
         po_seats_actual_occupied_pct=80.0,
         po_seats_occupied_pct=80.0,
         total_po_seats=200,
+        sold_price_per_po_seat_actual=500000,  # Add for actual breakeven test
     )
     result = calculator.calculate_pricing(data)
     assert result.breakeven_price == 1000000
     assert result.base_price == 1000000
     assert result.price_with_margin == 1500000
     assert result.final_price == 1500000
+    assert result.target_breakeven_occupancy_pct == 50.0
+    # actual_breakeven_occupancy_pct = 100000000 / (500000 * 200) * 100 = 100.0
+    assert result.actual_breakeven_occupancy_pct == 100.0
 
 
 def test_published_price_in_pipeline(monkeypatch):

@@ -20,11 +20,20 @@
 - `src/pricing/formatter.py` - Response formatters for different output formats (Google Chat, API JSON, etc.).
 - `src/pricing_pipeline.py` - Orchestrates the pricing calculation pipeline and excludes locations named 'Holding' and those with zero/null PO seats.
 - `tests/test_google_chat_app.py` - Unit tests for the Google Chat app integration and command handling.
+- `src/exceptions/pricing_exceptions.py` - Centralized exception hierarchy for the pricing engine.
+- `src/utils/error_handler.py` - Error handling utilities including decorators, context managers, and safe parsing functions.
+- `tests/test_error_handling.py` - Unit tests for the error handling system.
+- `docs/error_handling_strategy.md` - Comprehensive documentation for the error handling strategy.
+- `config/pricing_rules.yaml` - Configuration file containing pricing rules and location-specific settings.
+- `src/pricing/rules.py` - Module for building pricing rules from configuration and extracting target breakeven occupancy.
+- `tests/test_pricing_calculator.py` - Unit tests for the pricing calculator logic including smart target calculations.
+- `tests/test_pricing_rules.py` - Unit tests for pricing rules configuration and smart target logic.
 
 ### Notes
 
 - Unit tests should be placed in the `tests/` directory, mirroring the structure of the `src/` directory.
 - Use `pytest` or another Python test runner to execute tests (e.g., `pytest tests/`).
+- Smart target breakeven occupancy calculations should be thoroughly tested with various profitability scenarios.
 
 ## Tasks
 
@@ -55,15 +64,28 @@
   - [x] 5.1 Store published price for each location and month, with user, date, and reason for publishing.
   - [x] 5.2 Display published price in CLI and API output, clearly distinguishing it from the recommended price.
   - [x] 5.3 Ensure published price is persisted and can be updated or replaced for a given period.
-- [ ] 6.0 Output Formatting, Reporting, and LLM Reasoning Integration
+- [x] 6.0 Output Formatting, Reporting, and LLM Reasoning Integration
   - [x] 6.1 Format output to include recommended price, manual override note, latest occupancy, breakeven occupancy %, and highlight if location is losing money.
   - [x] 6.2 Integrate LLM to generate reasoning for price recommendations.
   - [ ] 6.3 Ensure output is clear and actionable for end users.
   - [x] 6.4 Format CLI output to display recommended prices as integers with thousands separators and no decimal points for clarity.
+  - [x] 6.5 Clarify breakeven occupancy concepts: distinguish between target breakeven occupancy (from config) and actual breakeven occupancy (calculated from current data).
+  - [x] 6.6 Update losing money logic to use actual breakeven occupancy instead of target breakeven occupancy.
+  - [x] 6.7 Update CLI and Google Chat output to display both target and actual breakeven occupancy with clear labels.
 - [x] 7.0 Testing, Validation, and Documentation
   - [x] 7.1 Write unit tests for all modules and core logic.
   - [ ] 7.2 Validate calculation accuracy and business rule enforcement.
   - [ ] 7.3 Document code, configuration, and usage instructions.
+- [x] 7.4 Implement Centralized Error Handling System
+  - [x] 7.4.1 Create comprehensive exception hierarchy with specific exception types for different error categories.
+  - [x] 7.4.2 Implement error context system with rich debugging information.
+  - [x] 7.4.3 Develop error handling utilities including decorators, context managers, and safe parsing functions.
+  - [x] 7.4.4 Optimize pricing pipeline with consistent error handling patterns.
+  - [x] 7.4.5 Enhance parsing utilities with context-aware error handling.
+  - [x] 7.4.6 Create comprehensive documentation for error handling strategy.
+  - [x] 7.4.7 Write unit tests for error handling system and scenarios.
+  - [ ] 7.4.8 Migrate remaining modules to use centralized error handling.
+  - [ ] 7.4.9 Implement error monitoring and alerting for production deployment.
 - [ ] 8.0 Integrate with Google Spaces Chat
   - [x] 8.1 Implement backend integration to receive and respond to pricing requests from Google Spaces Chat.
   - [x] 8.2 Format responses for Google Spaces, including published price, recommended price, and reasoning.
@@ -82,3 +104,36 @@
   - [ ] 9.10 Log all requests and responses for audit and troubleshooting purposes
   - [ ] 9.11 Write unit tests for command parsing, API integration, and response formatting in `tests/test_google_chat_app.py`
   - [ ] 9.12 Document Google Chat app deployment steps, configuration, and usage instructions for end users
+- [ ] 10.0 Implement Smart Target Breakeven Occupancy Feature
+  - [x] 10.1 Extend Configuration System for Smart Targets
+    - [x] 10.1.1 Update `config/pricing_rules.yaml` to include smart target configuration options for each location
+    - [x] 10.1.2 Add `use_smart_target` boolean flag to enable/disable smart targets per location
+    - [x] 10.1.3 Update `src/pricing/rules.py` to parse and validate smart target configuration
+    - [x] 10.1.4 Add configuration validation to ensure smart target settings are valid
+  - [x] 10.2 Implement Smart Target Calculation Logic
+    - [x] 10.2.1 Create `calculate_dynamic_improvement_pct()` function in `src/pricing/calculator.py`
+    - [x] 10.2.2 Implement logic for profitable locations (more aggressive targets - 3-7% reduction)
+    - [x] 10.2.3 Implement logic for losing money locations (less aggressive targets - 3-10% reduction)
+    - [x] 10.2.4 Add consideration of current breakeven occupancy level when determining aggressiveness
+    - [x] 10.2.5 Implement fallback to static targets when smart target calculation fails
+    - [x] 10.2.6 Add comprehensive error handling for smart target calculations
+  - [x] 10.3 Update Pricing Calculator to Use Smart Targets
+    - [x] 10.3.1 Modify `get_target_breakeven_occupancy()` function to accept actual breakeven and current occupancy parameters
+    - [x] 10.3.2 Update `PricingCalculator.calculate_pricing()` to pass required parameters for smart target calculation
+    - [x] 10.3.3 Integrate smart target calculation into the main pricing flow
+    - [x] 10.3.4 Ensure backward compatibility with existing static target configuration
+    - [x] 10.3.5 Add logging for smart target calculations to track when and how targets are calculated
+  - [ ] 10.4 Enhance Output Display and Reporting
+    - [x] 10.4.1 Update `PricingResult` model to include smart target information
+    - [x] 10.4.2 Modify CLI output to indicate when smart targets are being used
+    - [x] 10.4.3 Update Google Chat formatter to display smart target information
+    - [x] 10.4.4 Add visual indicators in output to distinguish between static and smart targets
+    - [x] 10.4.5 Update API responses to include smart target metadata
+  - [ ] 10.5 Add Testing and Validation
+    - [x] 10.5.1 Create unit tests for smart target calculation logic with various scenarios
+    - [x] 10.5.2 Test profitable vs losing money location calculations
+    - [x] 10.5.3 Test different breakeven occupancy levels and their impact on target aggressiveness
+    - [x] 10.5.4 Validate fallback behavior when smart target calculation fails
+    - [x] 10.5.5 Test configuration parsing and validation for smart target settings
+    - [x] 10.5.6 Create integration tests for the complete smart target workflow
+    - [x] 10.5.7 Add performance tests to ensure smart target calculations don't impact system performance

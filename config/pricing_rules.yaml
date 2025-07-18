@@ -22,103 +22,129 @@ locations:
     min_price: null
     max_price: 2500000
     target_breakeven_occupancy: 54.0
+    use_smart_target: true
   ASG Tower:
     min_price: null
     max_price: 2800000
     target_breakeven_occupancy: 40.0
+    use_smart_target: true
   BSD Green Office Park:
     min_price: null
     max_price: 2800000
     target_breakeven_occupancy: 50.0
+    use_smart_target: true
   Central Park:
     min_price: 2700000
     max_price: 2900000
     target_breakeven_occupancy: 75.0
+    use_smart_target: true
   Chubb Square:
     min_price: null
     max_price: 3300000
     target_breakeven_occupancy: 67.0
+    use_smart_target: true
   Fatmawati:
     min_price: null
     max_price: 2900000
     target_breakeven_occupancy: 46.0
+    use_smart_target: true
   Holding:
     min_price: null
     max_price: null
     target_breakeven_occupancy: null
+    use_smart_target: true
   Kemang X:
     min_price: null
     max_price: 2800000
     target_breakeven_occupancy: 54.0
+    use_smart_target: true
   Lippo Mall Kemang:
     min_price: null
     max_price: null
     target_breakeven_occupancy: null
+    use_smart_target: true
   Lippo Mall Puri:
     min_price: null
     max_price: 2800000
     target_breakeven_occupancy: 50.0
+    use_smart_target: true
   Menara Rajawali:
     min_price: null
     max_price: 2900000
     target_breakeven_occupancy: 47.0
+    use_smart_target: true
   Millennium Centennial Center:
     min_price: null
     max_price: 3300000
     target_breakeven_occupancy: 68.0
+    use_smart_target: true
   MNC Tower Surabaya:
     min_price: null
     max_price: 2600000
     target_breakeven_occupancy: 72.0
+    use_smart_target: true
   Pacific Place:
     min_price: null
     max_price: 3500000
     target_breakeven_occupancy: 73.0
+    use_smart_target: true
   Park 23:
     min_price: null
     max_price: 3000000
     target_breakeven_occupancy: 39.0
+    use_smart_target: true
   Plaza Indonesia:
     min_price: null
     max_price: 3500000
     target_breakeven_occupancy: 86.0
+    use_smart_target: true
   Pondok Indah:
     min_price: null
     max_price: 3000000
     target_breakeven_occupancy: 78.0
+    use_smart_target: true
   RDTX Square:
     min_price: null
     max_price: 3000000
     target_breakeven_occupancy: 74.0
+    use_smart_target: true
   Sahid Sudirman:
     min_price: null
     max_price: 3000000
     target_breakeven_occupancy: 47.0
+    use_smart_target: true
   Sampoerna Strategic Square:
     min_price: null
     max_price: 3200000
     target_breakeven_occupancy: 63.0
+    use_smart_target: true
   Senayan City:
     min_price: null
     max_price: 3500000
     target_breakeven_occupancy: 80.0
+    use_smart_target: true
   Sinar Mas Land Plaza Medan:
     min_price: null
     max_price: 2500000
     target_breakeven_occupancy: 52.0
+    use_smart_target: true
   Sinar Mas Land Plaza Surabaya:
     min_price: 2000000
     max_price: 2500000
     target_breakeven_occupancy: 46.0
+    use_smart_target: true
   Sopo Del:
     min_price: null
     max_price: 2900000
     target_breakeven_occupancy: 52.0
+    use_smart_target: true
   Treasury Tower:
     min_price: null
     max_price: 3500000
     target_breakeven_occupancy: 57.0
+    use_smart_target: true
   XL Axiata Tower:
     min_price: 2600000
     max_price: 3000000
     target_breakeven_occupancy: 42.0
+    use_smart_target: true

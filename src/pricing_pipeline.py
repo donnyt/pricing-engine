@@ -1,5 +1,6 @@
 from typing import List
 import pandas as pd
+import logging
 from src.pricing.models import (
     PricingRules,
     DynamicPricingTier,
@@ -13,8 +14,29 @@ from src.sqlite_storage import get_published_price
 from src.llm_reasoning import generate_llm_reasoning
 from src.po_pricing_engine import load_merged_pricing_data
 from src.data.loader import DataLoaderService
+from src.utils.error_handler import (
+    handle_errors,
+    error_boundary,
+    safe_parse,
+    validate_required_field,
+    log_and_continue,
+    create_error_context,
+)
+from src.exceptions import (
+    DataNotFoundException,
+    DataValidationException,
+    CalculationException,
+    LLMServiceException,
+    ParsingException,
+)
 
 
+@handle_errors(
+    operation="pricing_pipeline",
+    default_return=[],
+    log_level=logging.ERROR,
+    reraise=False,
+)
 def run_pricing_pipeline(
     input_df: pd.DataFrame = None,
     config: dict = None,
@@ -39,7 +61,9 @@ def run_pricing_pipeline(
         auto_fetch: Whether to automatically fetch daily occupancy data from Zoho if not available (default: True).
     """
     import datetime
+    import logging
 
+    logger = logging.getLogger(__name__)
     outputs: List[PricingCLIOutput] = []
 
     # Load merged data if not provided
@@ -47,14 +71,16 @@ def run_pricing_pipeline(
         # Default target_date to today if not provided
         if target_date is None:
             target_date = datetime.date.today().strftime("%Y-%m-%d")
-        # If target_year and target_month are provided but not target_date, ignore them (target_date takes precedence)
+
         # Use DataLoaderService for consistent data loading
-        data_loader = DataLoaderService()
-        input_df = data_loader.load_merged_pricing_data(
-            target_date, target_location, auto_fetch
-        )
+        with error_boundary("load_merged_data", target_location, "DataLoaderService"):
+            data_loader = DataLoaderService()
+            input_df = data_loader.load_merged_pricing_data(
+                target_date, target_location, auto_fetch
+            )
 
     if input_df.empty:
+        logger.warning("No data available for pricing pipeline")
         return outputs
 
     # Default to current year/month if not provided
@@ -80,7 +106,11 @@ def run_pricing_pipeline(
             continue
         processed_locations.add(loc)
 
-        total_po_seats = parse_int(row.get("total_po_seats"))
+        total_po_seats = (
+            parse_int(row.get("total_po_seats"))
+            if row.get("total_po_seats") not in [None, "None", "", "nan"]
+            else 0
+        )
 
         if not loc:
             continue
@@ -90,6 +120,8 @@ def run_pricing_pipeline(
             continue
 
         # Calculate 7-day average occupancy for this location
+        context = create_error_context("calculate_occupancy", loc, "daily_data")
+
         if "po_seats_occupied_actual_pct" in input_df.columns:
             location_daily_data = input_df[
                 (input_df["building_name"] == loc)
@@ -104,13 +136,19 @@ def run_pricing_pipeline(
             # Calculate 7-day average occupancy
             daily_occupancies = []
             for occ in location_daily_data["po_seats_occupied_actual_pct"]:
-                parsed = parse_pct(occ)
+                parsed = safe_parse(parse_pct, occ, "occupancy_percentage", context)
                 if parsed is not None:
                     daily_occupancies.append(parsed)
                 else:
-                    print(
-                        f"Warning: Could not parse po_seats_occupied_actual_pct value '{occ}' for location {loc}"
+                    log_and_continue(
+                        ParsingException(
+                            "occupancy_percentage", occ, "Invalid format", context
+                        ),
+                        "parse_occupancy",
+                        loc,
+                        logging.WARNING,
                     )
+
             if daily_occupancies:
                 occupancy_pct = round(
                     sum(daily_occupancies) / len(daily_occupancies), 1
@@ -121,12 +159,12 @@ def run_pricing_pipeline(
                 daily_occupancy = f"{unique_dates} days avg"
             else:
                 # Fallback to single day data with column fallback logic
-                occupancy_pct = _get_occupancy_with_fallback(row)
+                occupancy_pct = _get_occupancy_with_fallback(row, context)
                 data_source = "single day"
                 daily_occupancy = row.get("po_seats_occupied_actual_pct")
         else:
             # Fallback to single day data with column fallback logic
-            occupancy_pct = _get_occupancy_with_fallback(row)
+            occupancy_pct = _get_occupancy_with_fallback(row, context)
             if occupancy_pct is not None:
                 occupancy_pct = round(occupancy_pct, 1)
             data_source = "single day"
@@ -136,14 +174,12 @@ def run_pricing_pipeline(
 
         # Fallback to monthly if no daily data available
         if occupancy_pct is None:
-            occupancy_pct = _get_occupancy_with_fallback(row)
+            occupancy_pct = _get_occupancy_with_fallback(row, context)
             if occupancy_pct is not None:
                 occupancy_pct = round(occupancy_pct, 1)
             data_source = "monthly"
             if occupancy_pct is None:
-                print(
-                    f"Warning: No occupancy data available for {loc} (row: {row.to_dict()})"
-                )
+                logger.warning(f"No occupancy data available for {loc}")
                 continue
 
         # Debug output for Pacific Place
@@ -215,12 +251,28 @@ def run_pricing_pipeline(
             ),
             avg_exp_total_po_expense_amount=avg_exp,
             po_seats_occupied_actual_pct=occupancy_pct,
-            po_seats_occupied_pct=parse_float(row.get("po_seats_occupied_pct")),
+            po_seats_occupied_pct=(
+                parse_float(row.get("po_seats_occupied_pct"))
+                if row.get("po_seats_occupied_pct") not in [None, "None", ""]
+                else None
+            ),
             total_po_seats=total_po_seats,
             published_price=published_price,
+            sold_price_per_po_seat_actual=(
+                parse_float(row.get("sold_price_per_po_seat_actual"))
+                if row.get("sold_price_per_po_seat_actual") not in [None, "None", ""]
+                else None
+            ),
         )
 
-        try:
+        # Calculate pricing with proper error handling
+        calc_context = create_error_context(
+            "calculate_pricing", loc, "pricing_calculator"
+        )
+
+        with error_boundary(
+            "pricing_calculation", loc, "PricingCalculator", reraise=False
+        ):
             pricing_result = calculator.calculate_pricing(location_data)
 
             # Prepare context for LLM reasoning
@@ -228,17 +280,27 @@ def run_pricing_pipeline(
                 "location": loc,
                 "recommended_price": pricing_result.final_price,
                 "occupancy_pct": location_data.po_seats_occupied_actual_pct,
-                "breakeven_occupancy_pct": pricing_result.breakeven_occupancy_pct,
+                "target_breakeven_occupancy_pct": pricing_result.target_breakeven_occupancy_pct,
+                "actual_breakeven_occupancy_pct": pricing_result.actual_breakeven_occupancy_pct,
                 "published_price": location_data.published_price,
             }
 
-            llm_reasoning = generate_llm_reasoning(llm_context) if verbose else None
+            # Generate LLM reasoning with error handling
+            llm_reasoning = None
+            if verbose:
+                with error_boundary("llm_reasoning", loc, "LLMService", reraise=False):
+                    llm_reasoning = generate_llm_reasoning(llm_context)
 
             output = PricingCLIOutput(
                 building_name=loc,
                 occupancy_pct=round(location_data.po_seats_occupied_actual_pct, 2),
-                breakeven_occupancy_pct=round(
-                    pricing_result.breakeven_occupancy_pct, 2
+                target_breakeven_occupancy_pct=round(
+                    pricing_result.target_breakeven_occupancy_pct, 2
+                ),
+                actual_breakeven_occupancy_pct=(
+                    round(pricing_result.actual_breakeven_occupancy_pct, 2)
+                    if pricing_result.actual_breakeven_occupancy_pct is not None
+                    else None
                 ),
                 dynamic_multiplier=pricing_result.dynamic_multiplier,
                 recommended_price=pricing_result.final_price,
@@ -246,22 +308,22 @@ def run_pricing_pipeline(
                 manual_override=None,
                 llm_reasoning=llm_reasoning,
                 published_price=location_data.published_price,
+                breakeven_price=pricing_result.breakeven_price,
+                sold_price_per_po_seat_actual=location_data.sold_price_per_po_seat_actual,
+                is_smart_target=pricing_result.is_smart_target,
             )
             outputs.append(output)
-        except Exception as e:
-            print(
-                f"ERROR: Calculation failed for location '{loc}' (row: {row.to_dict()}): {e}"
-            )
 
     return outputs
 
 
-def _get_occupancy_with_fallback(row):
+def _get_occupancy_with_fallback(row, context=None):
     """
     Get occupancy percentage with fallback logic for different column names.
 
     Args:
         row: DataFrame row containing occupancy data
+        context: Optional error context for better error reporting
 
     Returns:
         float: Parsed occupancy percentage or None if not available
@@ -275,7 +337,7 @@ def _get_occupancy_with_fallback(row):
 
     for col in columns_to_try:
         if col in row and row[col] is not None:
-            parsed = parse_pct(row[col])
+            parsed = safe_parse(parse_pct, row[col], f"occupancy_{col}", context)
             if parsed is not None:
                 return parsed
 
