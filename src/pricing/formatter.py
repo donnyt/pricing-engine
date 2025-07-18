@@ -58,8 +58,8 @@ class GoogleChatFormatter(ResponseFormatterInterface):
             "",
             f"Published Price: {format_price(published_price)}",
             f"Recommended Price: {format_price(recommended_price)}",
-            f"Current Occupancy: {occupancy_pct * 100:.1f}%",
-            f"Breakeven Occupancy: {breakeven_pct * 100:.1f}%",
+            f"Current Occupancy: {occupancy_pct:.1f}%",
+            f"Breakeven Occupancy: {breakeven_pct:.1f}%",
             "",
         ]
 

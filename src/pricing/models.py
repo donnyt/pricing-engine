@@ -2,22 +2,6 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 
-def get_location_rules(location: str, config: Dict[str, Any]) -> Dict[str, Any]:
-    loc_rules = config.get("locations", {}).get(location, {})
-    margin_of_safety = loc_rules.get("margin_of_safety", config.get("margin_of_safety"))
-    min_price = loc_rules.get("min_price")
-    max_price = loc_rules.get("max_price")
-    tiers = config.get("dynamic_pricing_tiers", [])
-    target_breakeven_occupancy = loc_rules.get("target_breakeven_occupancy")
-    return {
-        "min_price": min_price,
-        "max_price": max_price,
-        "margin_of_safety": margin_of_safety,
-        "dynamic_pricing_tiers": tiers,
-        "target_breakeven_occupancy": target_breakeven_occupancy,
-    }
-
-
 class DynamicPricingTier(BaseModel):
     min_occupancy: float
     max_occupancy: float
@@ -54,6 +38,7 @@ class PricingResult(BaseModel):
     price_with_margin: Optional[float] = None
     final_price: Optional[float] = None
     losing_money: Optional[bool] = None
+    dynamic_multiplier: Optional[float] = None
 
 
 class ManualOverrideInfo(BaseModel):
@@ -73,3 +58,4 @@ class PricingCLIOutput(BaseModel):
     manual_override: Optional[ManualOverrideInfo] = None
     llm_reasoning: Optional[str] = None
     published_price: Optional[float] = None
+    dynamic_multiplier: Optional[float] = None

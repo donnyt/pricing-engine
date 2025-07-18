@@ -1,5 +1,4 @@
 from src.pricing.models import (
-    get_location_rules,
     DynamicPricingTier,
     LocationData,
     PricingRules,
@@ -7,7 +6,14 @@ from src.pricing.models import (
     ManualOverrideInfo,
     PricingCLIOutput,
 )
-from src.utils.parsing import parse_float, parse_int, parse_pct
+from src.pricing.rules import build_rules, get_target_breakeven_occupancy
+from src.utils.parsing import (
+    parse_float,
+    parse_int,
+    parse_pct,
+    pct_to_decimal,
+    decimal_to_pct,
+)
 from typing import Any, Dict
 
 
@@ -16,21 +22,14 @@ class PricingCalculator:
         self.config = config
 
     def calculate_pricing(self, location_data: LocationData) -> PricingResult:
-        rules_dict = get_location_rules(location_data.name, self.config)
-        rules = PricingRules(
-            min_price=rules_dict["min_price"],
-            max_price=rules_dict["max_price"],
-            margin_of_safety=rules_dict["margin_of_safety"],
-            dynamic_pricing_tiers=[
-                DynamicPricingTier(**tier)
-                for tier in rules_dict["dynamic_pricing_tiers"]
-            ],
+        rules = build_rules(location_data.name, self.config)
+        target_breakeven_occupancy = get_target_breakeven_occupancy(
+            location_data.name, self.config
         )
-        target_breakeven_occupancy = rules_dict.get("target_breakeven_occupancy", 0.7)
         step1 = self._calculate_breakeven_price(
             location_data, target_breakeven_occupancy
         )
-        step2 = self._apply_dynamic_multiplier(
+        step2, dynamic_multiplier = self._apply_dynamic_multiplier(
             step1,
             location_data.po_seats_actual_occupied_pct,
             rules.dynamic_pricing_tiers,
@@ -57,6 +56,7 @@ class PricingCalculator:
             price_with_margin=step3,
             final_price=step4,
             losing_money=losing_money,
+            dynamic_multiplier=dynamic_multiplier,
         )
 
     def _calculate_breakeven_price(
@@ -66,19 +66,22 @@ class PricingCalculator:
             raise ValueError(
                 "Total PO seats and target breakeven occupancy must be greater than zero."
             )
+        # Convert target_breakeven_occupancy from percentage to decimal for calculation
+        target_breakeven_decimal = pct_to_decimal(target_breakeven_occupancy)
         return location_data.avg_exp_total_po_expense_amount / (
-            location_data.total_po_seats * target_breakeven_occupancy
+            location_data.total_po_seats * target_breakeven_decimal
         )
 
     def _apply_dynamic_multiplier(
         self, breakeven_price: float, occupancy_pct: float, tiers
-    ) -> float:
+    ) -> tuple[float, float]:
         multiplier = 1.0
         for tier in tiers:
+            # Both occupancy_pct and tier values are now in percentage format (0-100)
             if tier.min_occupancy < occupancy_pct <= tier.max_occupancy:
                 multiplier = tier.multiplier
                 break
-        return breakeven_price * multiplier
+        return breakeven_price * multiplier, multiplier
 
     def _apply_margin_of_safety(
         self, base_price: float, margin_of_safety: float

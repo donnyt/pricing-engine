@@ -10,8 +10,8 @@ def test_generate_llm_reasoning_no_api_key(monkeypatch):
     context = {
         "location": "Test Location",
         "recommended_price": 1000000,
-        "occupancy_pct": 0.85,
-        "breakeven_occupancy_pct": 0.75,
+        "occupancy_pct": 85.0,
+        "breakeven_occupancy_pct": 75.0,
         "published_price": 950000,
     }
     result = generate_llm_reasoning(context)
@@ -24,14 +24,16 @@ def test_generate_llm_reasoning_with_mock(monkeypatch):
     context = {
         "location": "Test Location",
         "recommended_price": 1000000,
-        "occupancy_pct": 0.85,
-        "breakeven_occupancy_pct": 0.75,
+        "occupancy_pct": 85.0,
+        "breakeven_occupancy_pct": 75.0,
         "published_price": 950000,
     }
-    # Mock openai.ChatCompletion.create
-    with mock.patch("openai.ChatCompletion.create") as mock_create:
-        mock_create.return_value.choices = [
-            mock.Mock(message={"content": "This is a test reasoning."})
+    # Mock the OpenAI client's chat completions create method
+    with mock.patch("openai.OpenAI") as mock_openai:
+        mock_client = mock.Mock()
+        mock_openai.return_value = mock_client
+        mock_client.chat.completions.create.return_value.choices = [
+            mock.Mock(message=mock.Mock(content="This is a test reasoning."))
         ]
         result = generate_llm_reasoning(context)
         assert result == "This is a test reasoning."
@@ -60,8 +62,8 @@ def generate_llm_reasoning(context: dict) -> str:
         f"- Current Published Price: ${published_price:,.2f}\n"
         f"- Price Differential: {price_diff_pct:+.1f}%\n\n"
         f"Performance Metrics:\n"
-        f"- Current Occupancy Rate: {occupancy:.1%}\n"
-        f"- Breakeven Occupancy Target: {breakeven:.1%}\n\n"
+        f"- Current Occupancy Rate: {occupancy:.1f}%\n"
+        f"- Breakeven Occupancy Target: {breakeven:.1f}%\n\n"
         f"Please provide a detailed pricing analysis addressing:\n"
         f"1. Whether the recommended price change is justified\n"
         f"2. Impact on occupancy and revenue\n"

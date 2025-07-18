@@ -1,12 +1,12 @@
 from typing import List
 import pandas as pd
 from src.pricing.models import (
-    get_location_rules,
     PricingRules,
     DynamicPricingTier,
     LocationData,
     PricingCLIOutput,
 )
+from src.pricing.rules import build_rules
 from src.utils.parsing import parse_float, parse_int, parse_pct
 from src.pricing.calculator import PricingCalculator
 from src.sqlite_storage import get_published_price
@@ -123,6 +123,7 @@ def run_pricing_pipeline(
                     if pricing_result.breakeven_occupancy_pct is not None
                     else None
                 ),
+                dynamic_multiplier=pricing_result.dynamic_multiplier,
                 recommended_price=pricing_result.final_price,
                 losing_money=pricing_result.losing_money,
                 manual_override=None,

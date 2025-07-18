@@ -4,7 +4,6 @@ import os
 from pydantic import BaseModel, Field
 from src.utils.parsing import parse_float, parse_int, parse_pct
 from src.pricing.models import (
-    get_location_rules,
     DynamicPricingTier,
     LocationData,
     PricingRules,
@@ -12,6 +11,7 @@ from src.pricing.models import (
     ManualOverrideInfo,
     PricingCLIOutput,
 )
+from src.pricing.rules import build_rules
 from src.pricing.calculator import PricingCalculator
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "../config/pricing_rules.yaml")

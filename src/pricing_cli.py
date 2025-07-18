@@ -35,10 +35,10 @@ from src.utils.parsing import format_price_int
 def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
     """Format pricing output for CLI display."""
     lines = [f"{output.building_name}:"]
-    lines.append(f"  Latest Occupancy: {int(round(output.occupancy_pct * 100))}%")
-    lines.append(
-        f"  Breakeven Occupancy: {int(round(output.breakeven_occupancy_pct * 100))}%"
-    )
+    lines.append(f"  Latest Occupancy: {output.occupancy_pct:.1f}%")
+    lines.append(f"  Breakeven Occupancy: {output.breakeven_occupancy_pct:.1f}%")
+    if verbose and output.dynamic_multiplier is not None:
+        lines.append(f"  Dynamic Multiplier: {output.dynamic_multiplier:.2f}x")
     if hasattr(output, "published_price") and output.published_price is not None:
         lines.append(f"  Published Price: {format_price_int(output.published_price)}")
     lines.append(f"  Recommended Price: {format_price_int(output.recommended_price)}")

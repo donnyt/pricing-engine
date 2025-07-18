@@ -8,7 +8,7 @@ def mock_config():
     return {
         "margin_of_safety": 0.5,
         "dynamic_pricing_tiers": [
-            {"min_occupancy": 0.0, "max_occupancy": 1.0, "multiplier": 1.0}
+            {"min_occupancy": 0.0, "max_occupancy": 100.0, "multiplier": 1.0}
         ],
         "locations": {
             "Test Tower": {
@@ -16,9 +16,9 @@ def mock_config():
                 "max_price": 2900000,
                 "margin_of_safety": 0.5,
                 "dynamic_pricing_tiers": [
-                    {"min_occupancy": 0.0, "max_occupancy": 1.0, "multiplier": 1.0}
+                    {"min_occupancy": 0.0, "max_occupancy": 100.0, "multiplier": 1.0}
                 ],
-                "target_breakeven_occupancy": 0.5,
+                "target_breakeven_occupancy": 50.0,
             }
         },
     }
@@ -32,36 +32,36 @@ def test_three_month_average_and_no_negative_price():
             "month": 4,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
         {
             "year": 2025,
             "month": 5,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
         {
             "year": 2025,
             "month": 6,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
         {
             "year": 2025,
             "month": 7,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
     ]
     df = pd.DataFrame(data)
@@ -85,27 +85,27 @@ def test_average_with_missing_months():
             "month": 5,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
         {
             "year": 2025,
             "month": 6,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
         {
             "year": 2025,
             "month": 7,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": -100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         },
     ]
     df = pd.DataFrame(data)
@@ -126,8 +126,8 @@ def test_pricing_calculator_direct():
         name="Test Tower",
         exp_total_po_expense_amount=100000000,
         avg_exp_total_po_expense_amount=100000000,
-        po_seats_actual_occupied_pct=0.8,
-        po_seats_occupied_pct=0.8,
+        po_seats_actual_occupied_pct=80.0,
+        po_seats_occupied_pct=80.0,
         total_po_seats=200,
     )
     result = calculator.calculate_pricing(data)
@@ -145,9 +145,9 @@ def test_published_price_in_pipeline(monkeypatch):
             "month": 7,
             "building_name": "Test Tower",
             "exp_total_po_expense_amount": 100000000,
-            "po_seats_actual_occupied_pct": 0.8,
+            "po_seats_actual_occupied_pct": 80.0,
             "total_po_seats": 200,
-            "po_seats_occupied_pct": 0.8,
+            "po_seats_occupied_pct": 80.0,
         }
     ]
     df = pd.DataFrame(data)

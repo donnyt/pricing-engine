@@ -28,8 +28,8 @@ def generate_llm_reasoning(context: dict) -> str:
         f"Location: {location}\n"
         f"Recommended Price: Rp {recommended_price:,.0f}\n"
         f"Published Price: Rp {published_price:,.0f}\n"
-        f"Occupancy Rate: {occupancy:.0%}\n"
-        f"Breakeven Occupancy: {breakeven:.0%}\n\n"
+        f"Occupancy Rate: {occupancy:.1f}%\n"
+        f"Breakeven Occupancy: {breakeven:.1f}%\n\n"
         f"Based on these metrics, provide a concise (max 6 sentences) reasoning for whether the recommended price is justified. "
         f"Address the occupancy, price difference, and impact on revenue. Respond in clear, practical business language."
     )

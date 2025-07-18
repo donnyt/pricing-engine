@@ -164,8 +164,8 @@ The API returns JSON responses with the following structure:
 ```json
 {
   "building_name": "ASG Tower",
-  "occupancy_pct": 0.65,
-  "breakeven_occupancy_pct": 0.4,
+  "occupancy_pct": 65.0,
+  "breakeven_occupancy_pct": 40.0,
   "recommended_price": 2800000.0,
   "losing_money": false,
   "manual_override": null,

@@ -1,18 +1,18 @@
 dynamic_pricing_tiers:
   - min_occupancy: 0.0
-    max_occupancy: 0.2
+    max_occupancy: 20.0
     multiplier: 0.8
-  - min_occupancy: 0.2
-    max_occupancy: 0.4
+  - min_occupancy: 20.0
+    max_occupancy: 40.0
     multiplier: 0.9
-  - min_occupancy: 0.4
-    max_occupancy: 0.6
+  - min_occupancy: 40.0
+    max_occupancy: 60.0
     multiplier: 1.0
-  - min_occupancy: 0.6
-    max_occupancy: 0.8
+  - min_occupancy: 60.0
+    max_occupancy: 80.0
     multiplier: 1.05
-  - min_occupancy: 0.8
-    max_occupancy: 1.0
+  - min_occupancy: 80.0
+    max_occupancy: 100.0
     multiplier: 1.1
 
 margin_of_safety: 0.5
@@ -21,27 +21,27 @@ locations:
   Arkadia Green Park:
     min_price: null
     max_price: 2500000
-    target_breakeven_occupancy: 0.54
+    target_breakeven_occupancy: 54.0
   ASG Tower:
     min_price: null
     max_price: 2800000
-    target_breakeven_occupancy: 0.40
+    target_breakeven_occupancy: 40.0
   BSD Green Office Park:
     min_price: null
     max_price: 2800000
-    target_breakeven_occupancy: 0.50
+    target_breakeven_occupancy: 50.0
   Central Park:
     min_price: 2700000
     max_price: 2900000
-    target_breakeven_occupancy: 0.75
+    target_breakeven_occupancy: 75.0
   Chubb Square:
     min_price: null
     max_price: 3300000
-    target_breakeven_occupancy: 0.67
+    target_breakeven_occupancy: 67.0
   Fatmawati:
     min_price: null
     max_price: 2900000
-    target_breakeven_occupancy: 0.46
+    target_breakeven_occupancy: 46.0
   Holding:
     min_price: null
     max_price: null
@@ -49,7 +49,7 @@ locations:
   Kemang X:
     min_price: null
     max_price: 2800000
-    target_breakeven_occupancy: 0.54
+    target_breakeven_occupancy: 54.0
   Lippo Mall Kemang:
     min_price: null
     max_price: null
@@ -57,68 +57,68 @@ locations:
   Lippo Mall Puri:
     min_price: null
     max_price: 2800000
-    target_breakeven_occupancy: 0.50
+    target_breakeven_occupancy: 50.0
   Menara Rajawali:
     min_price: null
     max_price: 2900000
-    target_breakeven_occupancy: 0.47
+    target_breakeven_occupancy: 47.0
   Millennium Centennial Center:
     min_price: null
     max_price: 3300000
-    target_breakeven_occupancy: 0.68
+    target_breakeven_occupancy: 68.0
   MNC Tower Surabaya:
     min_price: null
     max_price: 2600000
-    target_breakeven_occupancy: 0.72
+    target_breakeven_occupancy: 72.0
   Pacific Place:
     min_price: null
     max_price: 3500000
-    target_breakeven_occupancy: 0.73
+    target_breakeven_occupancy: 73.0
   Park 23:
     min_price: null
     max_price: 3000000
-    target_breakeven_occupancy: 0.39
+    target_breakeven_occupancy: 39.0
   Plaza Indonesia:
     min_price: null
     max_price: 3500000
-    target_breakeven_occupancy: 0.86
+    target_breakeven_occupancy: 86.0
   Pondok Indah:
     min_price: null
     max_price: 3000000
-    target_breakeven_occupancy: 0.78
+    target_breakeven_occupancy: 78.0
   RDTX Square:
     min_price: null
     max_price: 3000000
-    target_breakeven_occupancy: 0.74
+    target_breakeven_occupancy: 74.0
   Sahid Sudirman:
     min_price: null
     max_price: 3000000
-    target_breakeven_occupancy: 0.47
+    target_breakeven_occupancy: 47.0
   Sampoerna Strategic Square:
     min_price: null
     max_price: 3200000
-    target_breakeven_occupancy: 0.63
+    target_breakeven_occupancy: 63.0
   Senayan City:
     min_price: null
     max_price: 3500000
-    target_breakeven_occupancy: 0.80
+    target_breakeven_occupancy: 80.0
   Sinar Mas Land Plaza Medan:
     min_price: null
     max_price: 2500000
-    target_breakeven_occupancy: 0.52
+    target_breakeven_occupancy: 52.0
   Sinar Mas Land Plaza Surabaya:
     min_price: 2000000
     max_price: 2500000
-    target_breakeven_occupancy: 0.46
+    target_breakeven_occupancy: 46.0
   Sopo Del:
     min_price: null
     max_price: 2900000
-    target_breakeven_occupancy: 0.52
+    target_breakeven_occupancy: 52.0
   Treasury Tower:
     min_price: null
     max_price: 3500000
-    target_breakeven_occupancy: 0.57
+    target_breakeven_occupancy: 57.0
   XL Axiata Tower:
     min_price: 2600000
     max_price: 3000000
-    target_breakeven_occupancy: 0.42
+    target_breakeven_occupancy: 42.0
