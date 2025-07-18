@@ -1,15 +1,21 @@
-.PHONY: help install test run clean setup
+.PHONY: help install test run clean setup init-db
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  install    - Install dependencies"
 	@echo "  setup      - Setup virtual environment and install dependencies"
+	@echo "  init-db    - Initialize database with proper schema"
 	@echo "  run        - Run the FastAPI server"
 	@echo "  test       - Run tests"
 	@echo "  clean      - Clean up cache and temporary files"
 	@echo "  zoho       - Run Zoho CLI operations"
 	@echo "  pricing    - Run pricing CLI operations"
+	@echo ""
+	@echo "Database management:"
+	@echo "  make init-db                    - Initialize database with proper schema"
+	@echo "  python3 scripts/init_database.py --force      - Force recreate database"
+	@echo "  python3 scripts/init_database.py --verify-only - Verify existing schema"
 
 # Setup virtual environment and install dependencies
 setup:
@@ -19,6 +25,10 @@ setup:
 # Install dependencies
 install:
 	pip install -r requirements.txt
+
+# Initialize database with proper schema
+init-db:
+	python3 scripts/init_database.py
 
 # Run the FastAPI server
 run:

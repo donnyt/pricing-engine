@@ -65,7 +65,12 @@ def format_cli_output(output: PricingCLIOutput, verbose: bool = False) -> str:
 
 
 def run_pipeline(
-    verbose=False, year=None, month=None, location=None, no_auto_fetch=False
+    verbose=False,
+    year=None,
+    month=None,
+    location=None,
+    no_auto_fetch=False,
+    target_date=None,
 ):
     """Run the pricing pipeline for specified parameters."""
     now = datetime.datetime.now()
@@ -80,11 +85,31 @@ def run_pipeline(
         config=config,
         target_year=target_year,
         target_month=target_month,
+        target_date=target_date,  # Pass specific target date if provided
         verbose=verbose,
         auto_fetch=not no_auto_fetch,
         target_location=location,  # Pass location for targeted data loading
     )
 
+    if not outputs:
+        location_msg = f" for location '{location}'" if location else ""
+        print(
+            f"\n❌ No pricing results found{location_msg} for {target_year}-{target_month:02d}."
+        )
+        print("This usually means:")
+        print("  1. No data is available in the database")
+        print("  2. No data exists for the specified location")
+        print("  3. No data exists for the specified month/year")
+        print("\nTo load data, try:")
+        print(
+            "  python3 src/cli.py zoho upsert --report pnl_sms_by_month --year 2025 --month 1"
+        )
+        print(
+            "  python3 src/cli.py zoho upsert --report private_office_occupancies_by_building --date 2025-01-15"
+        )
+        return
+
+    print(f"\n📊 Pricing Results for {target_year}-{target_month:02d}:")
     for output in outputs:
         print(format_cli_output(output, verbose=verbose))
 
@@ -108,8 +133,19 @@ def check_pricing(year=None, month=None):
     )
 
     if not outputs:
-        print(f"No pricing results found for {target_year}-{target_month:02d}.")
+        print(f"\n❌ No pricing results found for {target_year}-{target_month:02d}.")
+        print("This usually means:")
+        print("  1. No data is available in the database")
+        print("  2. No data exists for the specified month/year")
+        print("\nTo load data, try:")
+        print(
+            "  python3 src/cli.py zoho upsert --report pnl_sms_by_month --year 2025 --month 1"
+        )
+        print(
+            "  python3 src/cli.py zoho upsert --report private_office_occupancies_by_building --date 2025-01-15"
+        )
     else:
+        print(f"\n📊 Pricing Results for {target_year}-{target_month:02d}:")
         for output in outputs:
             print(format_cli_output(output, verbose=True))
 
@@ -142,6 +178,11 @@ def main():
         action="store_true",
         help="Disable automatic fetching of daily occupancy data from Zoho Analytics",
     )
+    pipeline_parser.add_argument(
+        "--target-date",
+        type=str,
+        help="Specific target date for daily occupancy data (YYYY-MM-DD format, overrides year/month)",
+    )
 
     check_parser = subparsers.add_parser(
         "check-pricing",
@@ -158,6 +199,7 @@ def main():
             month=args.month,
             location=args.location,
             no_auto_fetch=args.no_auto_fetch,
+            target_date=args.target_date,
         )
     elif args.command == "check-pricing":
         check_pricing(year=args.year, month=args.month)

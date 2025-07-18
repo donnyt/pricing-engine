@@ -60,5 +60,8 @@ def decimal_to_pct(decimal: float) -> float:
 def format_price_int(val: float) -> str:
     """
     Format a number as an integer with thousands separators and no decimal points.
+    Returns "Not set" if the value is None.
     """
+    if val is None:
+        return "Not set"
     return f"{int(val):,}"

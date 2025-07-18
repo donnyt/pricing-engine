@@ -43,7 +43,10 @@ def run_pricing_pipeline(
 
     # Load merged data if not provided
     if input_df is None:
-
+        # Default target_date to today if not provided
+        if target_date is None:
+            target_date = datetime.date.today().strftime("%Y-%m-%d")
+        # If target_year and target_month are provided but not target_date, ignore them (target_date takes precedence)
         if auto_fetch:
             input_df = load_merged_pricing_data(target_date, target_location)
         else:
@@ -85,30 +88,80 @@ def run_pricing_pipeline(
         if total_po_seats == 0:
             continue
 
+        # Calculate 7-day average occupancy for this location
+        location_daily_data = input_df[
+            (input_df["building_name"] == loc)
+            & (input_df["po_seats_occupied_actual_pct"].notna())
+        ]
+
         # Use daily occupancy data if available, fallback to monthly
-        daily_occupancy = row.get("po_seats_occupied_actual_pct")
+        if not location_daily_data.empty:
+            # Calculate 7-day average occupancy
+            daily_occupancies = [
+                parse_pct(occ)
+                for occ in location_daily_data["po_seats_occupied_actual_pct"]
+                if parse_pct(occ) is not None
+            ]
+            if daily_occupancies:
+                occupancy_pct = round(
+                    sum(daily_occupancies) / len(daily_occupancies), 1
+                )
+                data_source = "7-day average"
+                # Count unique dates to get actual number of days
+                unique_dates = location_daily_data["date"].nunique()
+                daily_occupancy = f"{unique_dates} days avg"
+            else:
+                occupancy_pct = parse_pct(row.get("po_seats_occupied_actual_pct"))
+                data_source = "single day"
+                daily_occupancy = row.get("po_seats_occupied_actual_pct")
+        else:
+            occupancy_pct = parse_pct(row.get("po_seats_occupied_actual_pct"))
+            if occupancy_pct is not None:
+                occupancy_pct = round(occupancy_pct, 1)
+            data_source = "single day"
+            daily_occupancy = row.get("po_seats_occupied_actual_pct")
+
         monthly_occupancy = row.get("po_seats_actual_occupied_pct")
 
-        # Prefer daily occupancy data, fallback to monthly
-        occupancy_pct = (
-            parse_pct(daily_occupancy)
-            if daily_occupancy is not None
-            else parse_pct(monthly_occupancy)
-        )
+        # Fallback to monthly if no daily data available
+        if occupancy_pct is None:
+            occupancy_pct = parse_pct(monthly_occupancy)
+            if occupancy_pct is not None:
+                occupancy_pct = round(occupancy_pct, 1)
+            data_source = "monthly"
 
         # Debug output for Pacific Place
         if loc.lower() == "pacific place":
-            print(f"\nPacific Place occupancy data:")
+            # Calculate the date range for the 7-day average
+            from datetime import datetime, timedelta
+
+            if row.get("date"):
+                end_date = row.get("date")
+                try:
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                    start_dt = end_dt - timedelta(
+                        days=(location_daily_data["date"].nunique() - 1)
+                    )
+                    date_range_str = f"({start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')})"
+                except Exception:
+                    date_range_str = ""
+            else:
+                date_range_str = ""
+            print("\n-------------------------------")
+            print("\U0001f3e2 Pacific Place Occupancy Data")
+            print("-------------------------------")
             print(
-                f"  Daily occupancy (po_seats_occupied_actual_pct): {daily_occupancy}"
+                f"• 7-Day Average Daily Occupancy: {daily_occupancy} {date_range_str}"
             )
-            print(
-                f"  Monthly occupancy (po_seats_actual_occupied_pct): {monthly_occupancy}"
-            )
-            print(f"  Final occupancy used: {occupancy_pct}%")
-            print(
-                f"  Data source: {'daily' if daily_occupancy is not None else 'monthly'}"
-            )
+            print(f"• Monthly Occupancy (Actual):    {monthly_occupancy}")
+            if occupancy_pct is not None:
+                print(
+                    f"• Final Occupancy Used:          {occupancy_pct:.1f}%   \u2190 (used for pricing calculation)"
+                )
+            else:
+                print(f"• Final Occupancy Used:          None")
+            print(f"• Data Source:                   {data_source}")
+            print("-------------------------------")
 
         if occupancy_pct is None:
             print(f"Warning: No occupancy data available for {loc}")
@@ -239,12 +292,26 @@ def load_merged_pricing_data_simple(
         monthly_df = pd.DataFrame()
 
     try:
-        # Load daily occupancy data for target date and location
+        # Load daily occupancy data for last 7 days from target date
         daily_df = load_from_sqlite("private_office_occupancies_by_building")
 
-        # Filter to target date
+        # Calculate date range for past 7 days (excluding target date)
+        seven_days_ago = target_datetime - timedelta(
+            days=7
+        )  # 7 days before target date (excluding target date)
+
+        # Generate list of dates for the past 7 days (excluding target date)
+        date_range = []
+        current_dt = seven_days_ago
+        while (
+            current_dt < target_datetime
+        ):  # Use < instead of <= to exclude target date
+            date_range.append(current_dt.strftime("%Y-%m-%d"))
+            current_dt += timedelta(days=1)
+
+        # Filter to last 7 days
         if not daily_df.empty and "date" in daily_df.columns:
-            daily_df = daily_df[daily_df["date"] == target_date]
+            daily_df = daily_df[daily_df["date"].isin(date_range)]
 
             # Filter by location if specified
             if target_location:
@@ -253,7 +320,7 @@ def load_merged_pricing_data_simple(
                 ]
 
             print(
-                f"Loaded {len(daily_df)} rows from daily occupancy data for {target_date}."
+                f"Loaded {len(daily_df)} rows from daily occupancy data for past 7 days ({seven_days_ago.strftime('%Y-%m-%d')} to {(target_datetime - timedelta(days=1)).strftime('%Y-%m-%d')})."
             )
     except Exception as e:
         print(f"Error loading daily occupancy data: {e}")

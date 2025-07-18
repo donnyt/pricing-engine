@@ -1,30 +1,38 @@
-import sqlite3
+#!/usr/bin/env python3
+"""
+SQLite Storage Initialization Script
+
+This script initializes the SQLite database with proper schema for all tables.
+It's a wrapper around the comprehensive init_database.py script.
+"""
+
 import os
+import sys
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from scripts.init_database import init_database, verify_schema
 
 DB_PATH = os.environ.get("SQLITE_DB_PATH", "data/zoho_data.db")
 
-PUBLISHED_PRICES_SCHEMA = """
-CREATE TABLE IF NOT EXISTS published_prices (
-    building_name TEXT NOT NULL,
-    year_from INTEGER NOT NULL,
-    month_from INTEGER NOT NULL,
-    year_to INTEGER NOT NULL,
-    month_to INTEGER NOT NULL,
-    price REAL NOT NULL,
-    published_by TEXT,
-    published_at TEXT,
-    reason TEXT,
-    PRIMARY KEY (building_name, year_from, month_from, year_to, month_to)
-);
-"""
-
 
 def main():
+    """Initialize the SQLite database with proper schema."""
     print(f"Initializing SQLite DB at: {DB_PATH}")
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(PUBLISHED_PRICES_SCHEMA)
-        conn.commit()
-    print("published_prices table created (if not exists). Done.")
+
+    try:
+        # Initialize database with proper schema
+        init_database(DB_PATH)
+
+        # Verify the schema
+        verify_schema(DB_PATH)
+
+        print("\n✅ SQLite storage initialization completed successfully!")
+
+    except Exception as e:
+        print(f"❌ Initialization failed: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

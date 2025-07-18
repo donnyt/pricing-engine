@@ -5,6 +5,12 @@ import io
 from typing import List, Optional, Type, Any
 from dataclasses import dataclass, make_dataclass, fields
 import re
+import time
+
+# Rate limiting configuration
+DEFAULT_API_DELAY = 3  # seconds between API calls
+MAX_RETRIES = 3
+RETRY_DELAY_MULTIPLIER = 2  # exponential backoff multiplier
 
 try:
     from src.sqlite_storage import (
@@ -19,7 +25,6 @@ except ImportError:
         delete_from_sqlite_by_range,
         save_to_sqlite,
     )
-import time
 
 
 def get_zoho_access_token(
@@ -159,7 +164,7 @@ def clear_and_reload_pnl_sms_by_month_range(
     total_rows = 0
     for i, (year, month) in enumerate(ym):
         if i > 0:
-            time.sleep(2)  # Add delay to avoid API rate limiting
+            time.sleep(DEFAULT_API_DELAY)  # Add delay to avoid API rate limiting
         rows = fetch_pnl_sms_by_month_dataclasses(year, month)
         save_to_sqlite("pnl_sms_by_month", rows, if_exists="append")
         total_rows += len(rows)
@@ -212,7 +217,7 @@ def upsert_pnl_sms_by_month_range(
     total_rows = 0
     for i, (year, month) in enumerate(ym):
         if i > 0:
-            time.sleep(2)  # Add delay to avoid API rate limiting
+            time.sleep(DEFAULT_API_DELAY)  # Add delay to avoid API rate limiting
         rows = fetch_pnl_sms_by_month_dataclasses(year, month)
         save_to_sqlite("pnl_sms_by_month", rows, if_exists="append")
         total_rows += len(rows)
@@ -289,7 +294,7 @@ def upsert_private_office_occupancies_by_building_range(start_date: str, end_dat
     total_rows = 0
     for i, date in enumerate(dates):
         if i > 0:
-            time.sleep(2)  # Add delay to avoid API rate limiting
+            time.sleep(DEFAULT_API_DELAY)  # Add delay to avoid API rate limiting
         rows = fetch_private_office_occupancies_by_building_dataclasses(date)
         save_to_sqlite(
             "private_office_occupancies_by_building", rows, if_exists="append"

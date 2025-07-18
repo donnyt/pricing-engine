@@ -40,6 +40,9 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Initialize database with proper schema
+make init-db
+
 # Set environment variables
 export OPENAI_API_KEY="your-openai-api-key"
 ```
@@ -95,3 +98,29 @@ python3 -m pytest tests/
 # Run specific test
 python3 -m pytest tests/test_pricing_pipeline.py
 ```
+
+## 🗄️ Database Management
+
+The project uses SQLite for data storage with proper schema initialization:
+
+### Initialize Database
+```bash
+# Initialize database with proper schema (recommended)
+make init-db
+
+# Or run directly
+python3 scripts/init_database.py
+
+# Force recreation of existing database
+python3 scripts/init_database.py --force
+
+# Verify existing schema
+python3 scripts/init_database.py --verify-only
+```
+
+### Database Schema
+- **pnl_sms_by_month**: Financial data with proper numeric types (REAL, INTEGER)
+- **private_office_occupancies_by_building**: Daily occupancy data with proper types
+- **published_prices**: Published pricing history with proper constraints
+
+All tables are created with appropriate data types and indexes for optimal performance.

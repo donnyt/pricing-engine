@@ -83,12 +83,27 @@ def load_merged_pricing_data(target_date: str = None, target_location: str = Non
         monthly_df = pd.DataFrame()
 
     try:
-        # Load daily occupancy data for target date and location
+        # Load daily occupancy data for last 7 days from target date
         daily_df = load_from_sqlite("private_office_occupancies_by_building")
 
-        # Filter to target date
+        # Calculate date range for past 7 days (excluding target date)
+        target_datetime = datetime.strptime(target_date, "%Y-%m-%d")
+        seven_days_ago = target_datetime - timedelta(
+            days=7
+        )  # 7 days before target date (excluding target date)
+
+        # Generate list of dates for the past 7 days (excluding target date)
+        date_range = []
+        current_dt = seven_days_ago
+        while (
+            current_dt < target_datetime
+        ):  # Use < instead of <= to exclude target date
+            date_range.append(current_dt.strftime("%Y-%m-%d"))
+            current_dt += timedelta(days=1)
+
+        # Filter to last 7 days
         if not daily_df.empty and "date" in daily_df.columns:
-            daily_df = daily_df[daily_df["date"] == target_date]
+            daily_df = daily_df[daily_df["date"].isin(date_range)]
 
             # Filter by location if specified
             if target_location:
@@ -97,11 +112,12 @@ def load_merged_pricing_data(target_date: str = None, target_location: str = Non
                 ]
 
             print(
-                f"Loaded {len(daily_df)} rows from daily occupancy data for {target_date}."
+                f"Loaded {len(daily_df)} rows from daily occupancy data for past 7 days ({seven_days_ago.strftime('%Y-%m-%d')} to {(target_datetime - timedelta(days=1)).strftime('%Y-%m-%d')})."
             )
 
-            # Check if today's data exists, if not fetch from Zoho
-            if daily_df.empty:
+            # Check if we have data for the target date, if not fetch from Zoho
+            target_date_data = daily_df[daily_df["date"] == target_date]
+            if target_date_data.empty:
                 print(
                     f"No daily occupancy data found for {target_date}. Fetching from Zoho Analytics..."
                 )
@@ -118,7 +134,7 @@ def load_merged_pricing_data(target_date: str = None, target_location: str = Non
                     daily_df = load_from_sqlite(
                         "private_office_occupancies_by_building"
                     )
-                    daily_df = daily_df[daily_df["date"] == target_date]
+                    daily_df = daily_df[daily_df["date"].isin(date_range)]
                     if target_location:
                         daily_df = daily_df[
                             daily_df["building_name"].str.lower()

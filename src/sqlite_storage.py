@@ -16,13 +16,29 @@ def save_to_sqlite(
     - rows: List of dataclass instances or dicts.
     - db_path: Path to the SQLite database file.
     - if_exists: 'replace' (default) or 'append'.
+
+    Note: Tables must be created with proper schema using init_database.py first.
     """
     if not rows:
         return
+
+    # Check if table exists with proper schema
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+        )
+        if not cursor.fetchone():
+            raise ValueError(
+                f"Table '{table_name}' does not exist. "
+                f"Please run 'python3 scripts/init_database.py' to create tables with proper schema."
+            )
+
     # Convert dataclass instances to dicts if needed
     if not isinstance(rows[0], dict):
         rows = [row.__dict__ for row in rows]
     df = pd.DataFrame(rows)
+
     with sqlite3.connect(db_path) as conn:
         df.to_sql(table_name, conn, if_exists=if_exists, index=False)
 
