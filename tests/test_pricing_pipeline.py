@@ -1,7 +1,7 @@
 import pandas as pd
-from src.pricing_pipeline import run_pricing_pipeline
+from src.pricing.service import get_pricing_service
 from src.pricing.calculator import PricingCalculator
-from src.po_pricing_engine import LocationData
+from src.pricing.models import LocationData
 
 
 def mock_config():
@@ -66,7 +66,8 @@ def test_three_month_average_and_no_negative_price():
     ]
     df = pd.DataFrame(data)
     config = mock_config()
-    outputs = run_pricing_pipeline(
+    pricing_service = get_pricing_service()
+    outputs = pricing_service.run_pricing_pipeline(
         df, config, target_year=2025, target_month=7, verbose=False
     )
     assert len(outputs) == 1
@@ -113,7 +114,8 @@ def test_average_with_missing_months():
     ]
     df = pd.DataFrame(data)
     config = mock_config()
-    outputs = run_pricing_pipeline(
+    pricing_service = get_pricing_service()
+    outputs = pricing_service.run_pricing_pipeline(
         df, config, target_year=2025, target_month=7, verbose=False
     )
     assert len(outputs) == 1
@@ -131,7 +133,7 @@ def test_pricing_calculator_direct():
         name="Test Tower",
         exp_total_po_expense_amount=100000000,
         avg_exp_total_po_expense_amount=100000000,
-        po_seats_actual_occupied_pct=80.0,
+        po_seats_occupied_actual_pct=80.0,
         po_seats_occupied_pct=80.0,
         total_po_seats=200,
         sold_price_per_po_seat_actual=500000,  # Add for actual breakeven test
@@ -162,12 +164,13 @@ def test_published_price_in_pipeline(monkeypatch):
     df = pd.DataFrame(data)
     config = mock_config()
     # Patch get_published_price to return a known value
-    from src.pricing_pipeline import get_published_price
+    from src.data.storage import get_published_price
 
     monkeypatch.setattr(
-        "src.pricing_pipeline.get_published_price", lambda loc, y, m: 1234567
+        "src.data.storage.get_published_price", lambda loc, y, m: 1234567
     )
-    outputs = run_pricing_pipeline(
+    pricing_service = get_pricing_service()
+    outputs = pricing_service.run_pricing_pipeline(
         df, config, target_year=2025, target_month=7, verbose=False
     )
     assert len(outputs) == 1

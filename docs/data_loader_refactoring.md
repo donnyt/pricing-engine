@@ -22,11 +22,35 @@ Created a centralized `DataLoaderService` class in `src/data/loader.py` that con
 src/
 ├── data/
 │   ├── __init__.py
-│   └── loader.py          # New centralized data loader
-├── po_pricing_engine.py   # Updated to use DataLoaderService
-├── pricing_pipeline.py    # Updated to use DataLoaderService
-└── pricing/
-    └── service.py         # Updated to use DataLoaderService
+│   ├── loader.py          # Centralized data loader service
+│   ├── storage.py         # SQLite database operations
+│   └── zoho.py           # Zoho Analytics integration
+├── pricing/
+│   ├── __init__.py
+│   ├── service.py         # Pricing service (uses DataLoaderService)
+│   ├── calculator.py      # Pricing calculations
+│   ├── models.py          # Data models
+│   ├── rules.py           # Configuration rules
+│   ├── reasoning.py       # LLM reasoning
+│   └── formatter.py       # Output formatting
+├── config/
+│   ├── __init__.py
+│   └── rules.py           # Configuration management
+├── utils/
+│   ├── __init__.py
+│   ├── parsing.py         # Safe parsing utilities
+│   └── error_handler.py   # Error handling utilities
+├── exceptions/
+│   ├── __init__.py
+│   └── pricing_exceptions.py # Exception hierarchy
+├── api/
+│   └── pricing_router.py  # API endpoints
+├── webhooks/
+│   └── google_chat_router.py # Google Chat webhook
+├── cli.py                 # Main CLI wrapper
+├── zoho_cli.py           # Zoho CLI operations
+├── pricing_cli.py        # Pricing CLI operations
+└── app.py                # Unified FastAPI application
 ```
 
 ### DataLoaderService Interface
@@ -74,22 +98,28 @@ class DataLoaderService:
 - Proper error handling and logging
 - Type hints for better code clarity
 
-### 2. Updated `src/po_pricing_engine.py`
-- `load_merged_pricing_data()` now uses `DataLoaderService`
-- Maintains backward compatibility
-- Reduced from ~150 lines to ~10 lines
+### 2. Moved and Reorganized Data Layer
+- Moved `src/sqlite_storage.py` to `src/data/storage.py`
+- Moved `src/zoho_integration.py` to `src/data/zoho.py`
+- Created proper data layer package structure
 
-### 3. Updated `src/pricing_pipeline.py`
-- Removed duplicate `load_merged_pricing_data_simple()` function
-- Updated to use `DataLoaderService` directly
-- Simplified data loading logic
+### 3. Removed Legacy Files
+- Removed `src/po_pricing_engine.py` (legacy wrapper)
+- Removed `src/pricing_pipeline.py` (integrated into service layer)
+- Removed `src/llm_reasoning.py` (moved to `src/pricing/reasoning.py`)
 
-### 4. Updated `src/pricing/service.py`
-- Updated `PricingService` to use `DataLoaderService`
+### 4. Extracted Configuration Management
+- Created `src/config/rules.py` for configuration loading
+- Moved `load_pricing_rules()` function from legacy files
+- Centralized configuration management
+
+### 5. Enhanced Service Layer
+- Updated `src/pricing/service.py` to use `DataLoaderService`
+- Integrated pipeline logic into service layer
 - Improved data loading with proper date handling
 - Better separation of concerns
 
-### 5. Added Tests
+### 6. Added Tests
 - Created `tests/test_data_loader.py`
 - Tests cover initialization, data loading, and edge cases
 - All tests pass successfully
@@ -108,11 +138,28 @@ df = data_loader.load_merged_pricing_data(
 )
 ```
 
-### Backward Compatible Usage
+### Service Layer Usage
 ```python
-from src.po_pricing_engine import load_merged_pricing_data
+from src.pricing.service import get_pricing_service
 
-df = load_merged_pricing_data("2024-01-15", "Pacific Place")
+pricing_service = get_pricing_service()
+outputs = pricing_service.run_pricing_pipeline(
+    target_date="2024-01-15",
+    target_location="Pacific Place",
+    verbose=True
+)
+```
+
+### CLI Usage
+```bash
+# Run pricing pipeline for all locations
+python3 src/pricing_cli.py run-pipeline
+
+# Run for specific location with verbose output
+python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
+
+# Run for specific date
+python3 src/pricing_cli.py run-pipeline --target-date 2024-01-15
 ```
 
 ## Testing

@@ -1,6 +1,6 @@
 import os
 import pytest
-from src.zoho_integration import fetch_pnl_sms_by_month_dataclasses
+from src.data.zoho import fetch_pnl_sms_by_month_dataclasses
 
 
 @pytest.mark.skipif(

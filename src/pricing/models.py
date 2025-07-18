@@ -27,7 +27,7 @@ class PricingRules(BaseModel):
     max_price: Optional[float]
     margin_of_safety: float
     dynamic_pricing_tiers: List[DynamicPricingTier]
-    use_smart_target: bool = False  # Default to False for backward compatibility
+    use_smart_target: bool
 
 
 class PricingResult(BaseModel):

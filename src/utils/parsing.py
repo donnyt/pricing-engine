@@ -1,6 +1,12 @@
 from typing import Any, Optional
-from src.utils.error_handler import safe_parse, create_error_context
-from src.exceptions import ParsingException
+
+try:
+    from src.utils.error_handler import safe_parse, create_error_context
+    from src.exceptions import ParsingException
+except ImportError:
+    # Fallback for when running the script directly
+    from utils.error_handler import safe_parse, create_error_context
+    from exceptions import ParsingException
 
 
 def parse_float(

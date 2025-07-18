@@ -16,12 +16,12 @@ from unittest.mock import patch, MagicMock
 from dataclasses import dataclass
 from typing import List, Optional
 
-from src.zoho_integration import (
+from src.data.zoho import (
     upsert_pnl_sms_by_month,
     upsert_pnl_sms_by_month_range,
     fetch_pnl_sms_by_month_dataclasses,
 )
-from src.sqlite_storage import (
+from src.data.storage import (
     save_to_sqlite,
     load_from_sqlite,
     delete_from_sqlite_by_year_month,
@@ -99,12 +99,12 @@ class TestZohoUpsert:
     def test_upsert_pnl_sms_by_month_new_data(self, temp_db_path, sample_data_2025_05):
         """Test upsert when no existing data exists."""
         with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses",
+            "src.data.zoho.fetch_pnl_sms_by_month_dataclasses",
             return_value=sample_data_2025_05,
         ):
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_year_month"
+                    "src.data.storage.delete_from_sqlite_by_year_month"
                 ) as mock_delete:
                     # Call upsert
                     result = upsert_pnl_sms_by_month(2025, 5)
@@ -132,12 +132,12 @@ class TestZohoUpsert:
         assert len(df_before) == 2
 
         with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses",
+            "src.data.zoho.fetch_pnl_sms_by_month_dataclasses",
             return_value=sample_data_2025_06,
         ):
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_year_month"
+                    "src.data.storage.delete_from_sqlite_by_year_month"
                 ) as mock_delete:
                     # Call upsert for the same month
                     result = upsert_pnl_sms_by_month(2025, 5)
@@ -158,7 +158,7 @@ class TestZohoUpsert:
     ):
         """Test upsert range when no existing data exists."""
         with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses"
+            "src.data.zoho_integration.fetch_pnl_sms_by_month_dataclasses"
         ) as mock_fetch:
             mock_fetch.side_effect = [sample_data_2025_05, sample_data_2025_06]
 
@@ -196,14 +196,12 @@ class TestZohoUpsert:
         df_before = load_from_sqlite("pnl_sms_by_month", db_path=temp_db_path)
         assert len(df_before) == 2
 
-        with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses"
-        ) as mock_fetch:
+        with patch("src.data.zoho.fetch_pnl_sms_by_month_dataclasses") as mock_fetch:
             mock_fetch.side_effect = [sample_data_2025_05, sample_data_2025_06]
 
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_range"
+                    "src.data.storage.delete_from_sqlite_by_range"
                 ) as mock_delete:
                     # Call upsert range
                     result = upsert_pnl_sms_by_month_range(2025, 5, 2025, 6)
@@ -221,12 +219,10 @@ class TestZohoUpsert:
 
     def test_upsert_pnl_sms_by_month_empty_result(self, temp_db_path):
         """Test upsert when Zoho returns empty data."""
-        with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses", return_value=[]
-        ):
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+        with patch("src.data.zoho.fetch_pnl_sms_by_month_dataclasses", return_value=[]):
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_year_month"
+                    "src.data.storage.delete_from_sqlite_by_year_month"
                 ) as mock_delete:
                     # Call upsert
                     result = upsert_pnl_sms_by_month(2025, 5)
@@ -246,14 +242,12 @@ class TestZohoUpsert:
         self, temp_db_path, sample_data_2025_05, sample_data_2025_06
     ):
         """Test upsert range that crosses year boundary."""
-        with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses"
-        ) as mock_fetch:
+        with patch("src.data.zoho.fetch_pnl_sms_by_month_dataclasses") as mock_fetch:
             mock_fetch.side_effect = [sample_data_2025_05, sample_data_2025_06]
 
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_range"
+                    "src.data.storage.delete_from_sqlite_by_range"
                 ) as mock_delete:
                     # Call upsert range that crosses year (Dec 2024 to Jan 2025)
                     result = upsert_pnl_sms_by_month_range(2024, 12, 2025, 1)
@@ -279,12 +273,12 @@ class TestZohoUpsert:
     ):
         """Test upsert range for a single month (start and end same)."""
         with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses",
+            "src.data.zoho.fetch_pnl_sms_by_month_dataclasses",
             return_value=sample_data_2025_05,
         ):
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_range"
+                    "src.data.storage.delete_from_sqlite_by_range"
                 ) as mock_delete:
                     # Call upsert range for same start and end
                     result = upsert_pnl_sms_by_month_range(2025, 5, 2025, 5)
@@ -308,14 +302,12 @@ class TestZohoUpsert:
         self, temp_db_path, sample_data_2025_05, sample_data_2025_06
     ):
         """Test that rate limiting delay is applied between API calls."""
-        with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses"
-        ) as mock_fetch:
+        with patch("src.data.zoho.fetch_pnl_sms_by_month_dataclasses") as mock_fetch:
             mock_fetch.side_effect = [sample_data_2025_05, sample_data_2025_06]
 
-            with patch("src.sqlite_storage.save_to_sqlite") as mock_save:
+            with patch("src.data.storage.save_to_sqlite") as mock_save:
                 with patch(
-                    "src.sqlite_storage.delete_from_sqlite_by_range"
+                    "src.data.storage.delete_from_sqlite_by_range"
                 ) as mock_delete:
                     with patch("time.sleep") as mock_sleep:
                         # Call upsert range
@@ -360,7 +352,7 @@ class TestZohoUpsertIntegration:
 
         # Mock the fetch function to return our sample data
         with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses",
+            "src.data.zoho.fetch_pnl_sms_by_month_dataclasses",
             return_value=sample_data,
         ):
             # Call upsert
@@ -404,9 +396,7 @@ class TestZohoUpsertIntegration:
         ]
 
         # Mock the fetch function to return our sample data
-        with patch(
-            "src.zoho_integration.fetch_pnl_sms_by_month_dataclasses"
-        ) as mock_fetch:
+        with patch("src.data.zoho.fetch_pnl_sms_by_month_dataclasses") as mock_fetch:
             mock_fetch.side_effect = [sample_data_1, sample_data_2]
 
             # Call upsert range

@@ -8,7 +8,12 @@ from multiple sources, following the Single Responsibility Principle.
 from typing import Optional
 from datetime import date, datetime, timedelta
 import pandas as pd
-from src.sqlite_storage import load_from_sqlite
+
+try:
+    from src.data.storage import load_from_sqlite
+except ImportError:
+    # Fallback for when running the script directly
+    from data.storage import load_from_sqlite
 
 
 class DataLoaderService:
@@ -189,9 +194,15 @@ class DataLoaderService:
                             f"No daily occupancy data found for {target_date} in SQLite. Fetching from Zoho Analytics..."
                         )
                         try:
-                            from src.zoho_integration import (
-                                upsert_private_office_occupancies_by_building,
-                            )
+                            try:
+                                from src.data.zoho import (
+                                    upsert_private_office_occupancies_by_building,
+                                )
+                            except ImportError:
+                                # Fallback for when running the script directly
+                                from data.zoho import (
+                                    upsert_private_office_occupancies_by_building,
+                                )
 
                             upsert_private_office_occupancies_by_building(target_date)
                             print(

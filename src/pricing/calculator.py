@@ -1,19 +1,38 @@
-from src.pricing.models import (
-    DynamicPricingTier,
-    LocationData,
-    PricingRules,
-    PricingResult,
-    ManualOverrideInfo,
-    PricingCLIOutput,
-)
-from src.pricing.rules import build_rules, get_target_breakeven_occupancy
-from src.utils.parsing import (
-    parse_float,
-    parse_int,
-    parse_pct,
-    pct_to_decimal,
-    decimal_to_pct,
-)
+try:
+    from src.pricing.models import (
+        DynamicPricingTier,
+        LocationData,
+        PricingRules,
+        PricingResult,
+        ManualOverrideInfo,
+        PricingCLIOutput,
+    )
+    from src.pricing.rules import build_rules, get_target_breakeven_occupancy
+    from src.utils.parsing import (
+        parse_float,
+        parse_int,
+        parse_pct,
+        pct_to_decimal,
+        decimal_to_pct,
+    )
+except ImportError:
+    # Fallback for when running the script directly
+    from pricing.models import (
+        DynamicPricingTier,
+        LocationData,
+        PricingRules,
+        PricingResult,
+        ManualOverrideInfo,
+        PricingCLIOutput,
+    )
+    from pricing.rules import build_rules, get_target_breakeven_occupancy
+    from utils.parsing import (
+        parse_float,
+        parse_int,
+        parse_pct,
+        pct_to_decimal,
+        decimal_to_pct,
+    )
 from typing import Any, Dict
 
 

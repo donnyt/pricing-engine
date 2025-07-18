@@ -4,7 +4,7 @@ Zoho Analytics Data Management CLI
 This module handles Zoho Analytics data fetching, storage, and management operations.
 
 Usage:
-1. Upsert Zoho Analytics data to SQLite (insert if not exists, delete and reinsert if exists):
+1. Upsert Zoho Analytics data to SQLite (RECOMMENDED - insert if not exists, delete and reinsert if exists):
    python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
 
 2. Upsert data for a range of months:
@@ -13,10 +13,8 @@ Usage:
 3. Load data from SQLite and preview it:
    python3 src/zoho_cli.py load --report pnl_sms_by_month
 
-4. Legacy commands (still supported):
-   python3 src/zoho_cli.py fetch-and-save --report pnl_sms_by_month --year 2025 --month 5
-   python3 src/zoho_cli.py clear-and-reload --report pnl_sms_by_month --year 2025 --month 5
-   python3 src/zoho_cli.py clear-and-reload-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
+4. Legacy commands (WARNING: fetch-replace replaces entire table):
+   python3 src/zoho_cli.py fetch-replace --report pnl_sms_by_month --year 2025 --month 5
 
 Reports supported: pnl_sms_by_month (add more as needed)
 """
@@ -24,30 +22,26 @@ Reports supported: pnl_sms_by_month (add more as needed)
 import argparse
 
 try:
-    from src.zoho_integration import (
+    from src.data.zoho import (
         fetch_pnl_sms_by_month_dataclasses,
-        clear_and_reload_pnl_sms_by_month,
-        clear_and_reload_pnl_sms_by_month_range,
         upsert_pnl_sms_by_month,
         upsert_pnl_sms_by_month_range,
         fetch_private_office_occupancies_by_building_dataclasses,
         upsert_private_office_occupancies_by_building,
         upsert_private_office_occupancies_by_building_range,
     )
-    from src.sqlite_storage import save_to_sqlite, load_from_sqlite
+    from src.data.storage import save_to_sqlite, load_from_sqlite
 except ImportError:
     # Fallback for when running the script directly
-    from zoho_integration import (
+    from data.zoho import (
         fetch_pnl_sms_by_month_dataclasses,
-        clear_and_reload_pnl_sms_by_month,
-        clear_and_reload_pnl_sms_by_month_range,
         upsert_pnl_sms_by_month,
         upsert_pnl_sms_by_month_range,
         fetch_private_office_occupancies_by_building_dataclasses,
         upsert_private_office_occupancies_by_building,
         upsert_private_office_occupancies_by_building_range,
     )
-    from sqlite_storage import save_to_sqlite, load_from_sqlite
+    from data.storage import save_to_sqlite, load_from_sqlite
 
 
 def upsert_data(report: str, year: int = None, month: int = None):
@@ -75,8 +69,12 @@ def upsert_data_range(
         print(f"Report '{report}' not supported yet.")
 
 
-def fetch_and_save(report: str, year: int = None, month: int = None):
-    """Fetch data from Zoho Analytics and save to SQLite."""
+def fetch_replace(report: str, year: int = None, month: int = None):
+    """Fetch data from Zoho Analytics and replace entire table in SQLite.
+
+    WARNING: This command replaces the entire table with new data from Zoho.
+    Use 'upsert' command instead for safer, targeted updates.
+    """
     if report == "pnl_sms_by_month":
         if year is None or month is None:
             print("--year and --month are required for pnl_sms_by_month")
@@ -128,35 +126,6 @@ def fetch_daily_occupancy(date: str):
     except Exception as e:
         print(f"Error fetching data: {e}")
         print("This is expected if Zoho credentials are not configured.")
-
-
-def clear_and_reload(report: str, year: int = None, month: int = None):
-    """Clear existing data for a specific month and reload from Zoho."""
-    if report == "pnl_sms_by_month":
-        if year is None or month is None:
-            print("--year and --month are required for pnl_sms_by_month")
-            return
-        n = clear_and_reload_pnl_sms_by_month(year, month)
-        print(
-            f"Cleared and reloaded {n} rows for {year}-{month:02d} in 'pnl_sms_by_month'."
-        )
-    else:
-        print(f"Report '{report}' not supported yet.")
-
-
-def clear_and_reload_range(
-    report: str, start_year: int, start_month: int, end_year: int, end_month: int
-):
-    """Clear existing data for a range of months and reload from Zoho."""
-    if report == "pnl_sms_by_month":
-        n = clear_and_reload_pnl_sms_by_month_range(
-            start_year, start_month, end_year, end_month
-        )
-        print(
-            f"Cleared and reloaded {n} rows for {start_year}-{start_month:02d} to {end_year}-{end_month:02d} in 'pnl_sms_by_month'."
-        )
-    else:
-        print(f"Report '{report}' not supported yet.")
 
 
 def upsert_daily_occupancy(date: str):
@@ -226,7 +195,8 @@ def main():
 
     # Legacy commands (still supported)
     fetch_parser = subparsers.add_parser(
-        "fetch-and-save", help="Fetch Zoho data and save to SQLite (legacy)"
+        "fetch-replace",
+        help="Fetch Zoho data and replace entire table (WARNING: replaces all data)",
     )
     fetch_parser.add_argument(
         "--report", required=True, help="Report name (e.g., pnl_sms_by_month)"
@@ -243,39 +213,6 @@ def main():
     )
     load_parser.add_argument(
         "--report", required=True, help="Report name (e.g., pnl_sms_by_month)"
-    )
-
-    clear_parser = subparsers.add_parser(
-        "clear-and-reload", help="Clear and reload data for a specific month (legacy)"
-    )
-    clear_parser.add_argument(
-        "--report", required=True, help="Report name (e.g., pnl_sms_by_month)"
-    )
-    clear_parser.add_argument(
-        "--year", type=int, help="Year (required for some reports)"
-    )
-    clear_parser.add_argument(
-        "--month", type=int, help="Month (required for some reports)"
-    )
-
-    clear_range_parser = subparsers.add_parser(
-        "clear-and-reload-range",
-        help="Clear and reload data for a range of months (legacy)",
-    )
-    clear_range_parser.add_argument(
-        "--report", required=True, help="Report name (e.g., pnl_sms_by_month)"
-    )
-    clear_range_parser.add_argument(
-        "--start-year", type=int, required=True, help="Start year"
-    )
-    clear_range_parser.add_argument(
-        "--start-month", type=int, required=True, help="Start month"
-    )
-    clear_range_parser.add_argument(
-        "--end-year", type=int, required=True, help="End year"
-    )
-    clear_range_parser.add_argument(
-        "--end-month", type=int, required=True, help="End month"
     )
 
     # New command for daily occupancy data
@@ -322,20 +259,11 @@ def main():
             args.end_year,
             args.end_month,
         )
-    elif args.command == "fetch-and-save":
-        fetch_and_save(args.report, args.year, args.month)
+    elif args.command == "fetch-replace":
+        fetch_replace(args.report, args.year, args.month)
     elif args.command == "load":
         load_and_preview(args.report)
-    elif args.command == "clear-and-reload":
-        clear_and_reload(args.report, args.year, args.month)
-    elif args.command == "clear-and-reload-range":
-        clear_and_reload_range(
-            args.report,
-            args.start_year,
-            args.start_month,
-            args.end_year,
-            args.end_month,
-        )
+
     elif args.command == "fetch-daily-occupancy":
         from datetime import date
 

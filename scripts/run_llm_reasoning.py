@@ -1,4 +1,4 @@
-from src.llm_reasoning import generate_llm_reasoning
+from src.pricing.reasoning import generate_llm_reasoning
 
 context = {
     "location": "Pacific Place",

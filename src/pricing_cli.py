@@ -25,21 +25,17 @@ import pandas as pd
 import datetime
 
 try:
-    from src.sqlite_storage import load_from_sqlite
-    from src.po_pricing_engine import (
-        load_pricing_rules,
-        PricingCLIOutput,
-    )
-    from src.pricing_pipeline import run_pricing_pipeline
+    from src.data.storage import load_from_sqlite
+    from src.config.rules import load_pricing_rules
+    from src.pricing.models import PricingCLIOutput
+    from src.pricing.service import get_pricing_service
     from src.utils.parsing import format_price_int
 except ImportError:
     # Fallback for when running the script directly
-    from sqlite_storage import load_from_sqlite
-    from po_pricing_engine import (
-        load_pricing_rules,
-        PricingCLIOutput,
-    )
-    from pricing_pipeline import run_pricing_pipeline
+    from data.storage import load_from_sqlite
+    from config.rules import load_pricing_rules
+    from pricing.models import PricingCLIOutput
+    from pricing.service import get_pricing_service
     from utils.parsing import format_price_int
 
 
@@ -111,12 +107,13 @@ def run_pipeline(
     target_year = int(year) if year is not None else now.year
     target_month = int(month) if month is not None else now.month
 
-    config = load_pricing_rules()
+    # Get the pricing service instance
+    pricing_service = get_pricing_service()
 
-    # Let the pipeline handle data loading with merged daily occupancy data
-    outputs = run_pricing_pipeline(
+    # Run the integrated pricing pipeline
+    outputs = pricing_service.run_pricing_pipeline(
         input_df=None,  # Let pipeline load merged data
-        config=config,
+        config=None,  # Service will load config internally
         target_year=target_year,
         target_month=target_month,
         target_date=target_date,  # Pass specific target date if provided
@@ -161,9 +158,14 @@ def check_pricing(year=None, month=None):
     target_year = int(year) if year is not None else now.year
     target_month = int(month) if month is not None else now.month
 
-    config = load_pricing_rules()
-    outputs = run_pricing_pipeline(
-        df, config, target_year=target_year, target_month=target_month, verbose=True
+    # Get the pricing service instance
+    pricing_service = get_pricing_service()
+    outputs = pricing_service.run_pricing_pipeline(
+        df,
+        config=None,
+        target_year=target_year,
+        target_month=target_month,
+        verbose=True,
     )
 
     if not outputs:

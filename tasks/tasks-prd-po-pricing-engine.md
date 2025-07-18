@@ -1,39 +1,63 @@
 ## Relevant Files
 
-- `src/po_pricing_engine.py` - Main module implementing the PO pricing calculation logic and business rules.
-- `src/zoho_integration.py` - Handles data retrieval from Zoho Analytics.
+### Core Application Files
 - `src/cli.py` - Main CLI wrapper that directs to specialized modules.
 - `src/zoho_cli.py` - CLI for Zoho Analytics data management operations.
 - `src/pricing_cli.py` - CLI for pricing engine operations and pipeline execution.
 - `src/app.py` - Unified FastAPI application combining API endpoints and Google Chat webhook functionality.
-- `src/llm_reasoning.py` - Module for generating LLM-based reasoning for price recommendations.
-- `src/audit.py` - Handles manual override audit trail and logging.
-- `tests/test_po_pricing_engine.py` - Unit tests for the pricing engine logic.
-- `tests/test_zoho_integration.py` - Unit tests for Zoho Analytics integration.
-- `tests/test_cli.py` - Unit tests for CLI functionality.
-- `tests/test_api.py` - Unit tests for API endpoints.
-- `tests/test_llm_reasoning.py` - Unit tests for LLM reasoning module.
-- `tests/test_audit.py` - Unit tests for manual override and audit trail.
+
+### Data Layer
+- `src/data/loader.py` - Centralized data loading service for pricing data from multiple sources.
+- `src/data/storage.py` - SQLite database operations for storing and retrieving data.
+- `src/data/zoho.py` - Handles data retrieval from Zoho Analytics.
+
+### Pricing Domain
 - `src/pricing/models.py` - Contains all core data models for locations, expenses, occupancy, and pricing rules.
 - `src/pricing/calculator.py` - Implements the core pricing calculation logic, including breakeven price per pax, dynamic pricing multipliers, margin of safety, and min/max price enforcement.
 - `src/pricing/service.py` - Service layer providing clean abstraction for pricing operations (shared by API and Google Chat app).
 - `src/pricing/formatter.py` - Response formatters for different output formats (Google Chat, API JSON, etc.).
-- `src/pricing_pipeline.py` - Orchestrates the pricing calculation pipeline and excludes locations named 'Holding' and those with zero/null PO seats.
-- `tests/test_google_chat_app.py` - Unit tests for the Google Chat app integration and command handling.
-- `src/exceptions/pricing_exceptions.py` - Centralized exception hierarchy for the pricing engine.
-- `src/utils/error_handler.py` - Error handling utilities including decorators, context managers, and safe parsing functions.
-- `tests/test_error_handling.py` - Unit tests for the error handling system.
-- `docs/error_handling_strategy.md` - Comprehensive documentation for the error handling strategy.
-- `config/pricing_rules.yaml` - Configuration file containing pricing rules and location-specific settings.
 - `src/pricing/rules.py` - Module for building pricing rules from configuration and extracting target breakeven occupancy.
+- `src/pricing/reasoning.py` - Module for generating LLM-based reasoning for price recommendations.
+
+### Configuration
+- `src/config/rules.py` - Configuration management for loading and validating pricing rules.
+- `config/pricing_rules.yaml` - Configuration file containing pricing rules and location-specific settings.
+
+### Utilities and Error Handling
+- `src/utils/parsing.py` - Safe parsing utilities for data conversion and validation.
+- `src/utils/error_handler.py` - Error handling utilities including decorators, context managers, and safe parsing functions.
+- `src/exceptions/pricing_exceptions.py` - Centralized exception hierarchy for the pricing engine.
+
+### Webhooks and API
+- `src/webhooks/google_chat_router.py` - Google Chat webhook handling and command processing.
+- `src/api/pricing_router.py` - API endpoints for pricing operations.
+
+### Tests
+- `tests/test_data_loader.py` - Unit tests for the data loading service.
 - `tests/test_pricing_calculator.py` - Unit tests for the pricing calculator logic including smart target calculations.
 - `tests/test_pricing_rules.py` - Unit tests for pricing rules configuration and smart target logic.
+- `tests/test_pricing_pipeline.py` - Unit tests for the pricing pipeline integration.
+- `tests/test_error_handling.py` - Unit tests for the error handling system.
+- `tests/test_zoho_integration.py` - Unit tests for Zoho Analytics integration.
+- `tests/test_zoho_cli_upsert.py` - Unit tests for Zoho CLI operations.
+- `tests/test_zoho_upsert.py` - Unit tests for Zoho data upsert functionality.
+- `tests/test_zoho_upsert_simple.py` - Unit tests for simple Zoho upsert scenarios.
+
+### Documentation
+- `docs/error_handling_strategy.md` - Comprehensive documentation for the error handling strategy.
+- `docs/data_loader_refactoring.md` - Documentation of the data loader refactoring process.
+- `docs/howto_cli_zoho_sqlite.md` - How-to guide for CLI and Zoho SQLite operations.
 
 ### Notes
 
 - Unit tests should be placed in the `tests/` directory, mirroring the structure of the `src/` directory.
 - Use `pytest` or another Python test runner to execute tests (e.g., `pytest tests/`).
 - Smart target breakeven occupancy calculations should be thoroughly tested with various profitability scenarios.
+- **Architectural Refactoring Notes:**
+  - Follow SOLID principles during refactoring to maintain clean architecture
+  - Each refactoring step should be tested independently before proceeding
+  - Focus on real architectural problems rather than cosmetic changes
+  - Preserve existing functionality while improving code organization
 
 ## Tasks
 
@@ -137,3 +161,99 @@
     - [x] 10.5.5 Test configuration parsing and validation for smart target settings
     - [x] 10.5.6 Create integration tests for the complete smart target workflow
     - [x] 10.5.7 Add performance tests to ensure smart target calculations don't impact system performance
+
+- [ ] 11.0 Architectural Refactoring and Code Organization
+  - [x] 11.1 Consolidate Data Layer (High Impact, Low Risk)
+    - [x] 11.1.1 Move `src/sqlite_storage.py` to `src/data/storage.py` to group data access modules
+    - [x] 11.1.2 Move `src/zoho_integration.py` to `src/data/zoho.py` for consistent data layer organization
+    - [x] 11.1.3 Update all import statements across the codebase to use new module paths
+    - [x] 11.1.4 Verify data layer functionality after migration
+    - [x] 11.1.5 Update tests to use new import paths
+    - [x] 11.1.6 **Comprehensive Testing Phase 1:**
+      - [x] 11.1.6.1 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose`
+      - [x] 11.1.6.2 Test CLI functionality: `python3 src/zoho_cli.py fetch-and-save --report pnl_sms_by_month --year 2025 --month 5`
+      - [x] 11.1.6.3 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing/Pacific%20Place"`
+      - [x] 11.1.6.4 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing"`
+      - [x] 11.1.6.5 Test Google Chat integration: Send `/po-price Pacific Place` via Google Chat
+      - [x] 11.1.6.6 Verify all data loading operations work correctly with new module paths
+      - [x] 11.1.6.7 Run full test suite: `pytest tests/`
+  - [x] 11.2 Extract Configuration Management (Low Impact, Low Risk)
+    - [x] 11.2.1 Create `src/config/` package with `__init__.py`
+    - [x] 11.2.2 Extract `load_pricing_rules()` function from `src/po_pricing_engine.py` to `src/config/rules.py`
+    - [x] 11.2.3 Update all imports to use `src.config.rules.load_pricing_rules`
+    - [x] 11.2.4 Remove the test script portion from `src/po_pricing_engine.py`
+    - [x] 11.2.5 Verify configuration loading works correctly after extraction
+    - [x] 11.2.6 **Comprehensive Testing Phase 2:**
+      - [x] 11.2.6.1 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose`
+      - [x] 11.2.6.2 Test CLI functionality: `python3 src/pricing_cli.py check-pricing --year 2024 --month 7`
+      - [x] 11.2.6.3 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing/Pacific%20Place"`
+      - [x] 11.2.6.4 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing"`
+      - [x] 11.2.6.5 Test Google Chat integration: Send `/po-price Pacific Place` via Google Chat
+      - [x] 11.2.6.6 Verify pricing rules are loaded correctly from new config module
+      - [x] 11.2.6.7 Verify smart target calculations still work with new config structure
+      - [x] 11.2.6.8 Run full test suite: `pytest tests/`
+  - [x] 11.3 Move LLM Reasoning to Pricing Domain (Medium Impact, Low Risk)
+    - [x] 11.3.1 Move `src/llm_reasoning.py` to `src/pricing/reasoning.py` as it's pricing-specific business logic
+    - [x] 11.3.2 Update all import statements to use `src.pricing.reasoning.generate_llm_reasoning`
+    - [x] 11.3.3 Update tests to use new import path
+    - [x] 11.3.4 Verify LLM reasoning functionality after migration
+    - [x] 11.3.5 **Comprehensive Testing Phase 3:**
+      - [x] 11.3.5.1 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose`
+      - [x] 11.3.5.2 Test CLI functionality: `python3 src/pricing_cli.py check-pricing --year 2024 --month 7`
+      - [x] 11.3.5.3 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing/Pacific%20Place"`
+      - [x] 11.3.5.4 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing"`
+      - [x] 11.3.5.5 Test Google Chat integration: Send `/po-price Pacific Place` via Google Chat
+      - [x] 11.3.5.6 Verify LLM reasoning is generated correctly in all outputs
+      - [x] 11.3.5.7 Verify reasoning appears in CLI verbose mode, API responses, and Google Chat
+      - [x] 11.3.5.8 Run full test suite: `pytest tests/`
+  - [x] 11.4 Integrate Pipeline Logic into Service Layer (High Impact, Medium Risk)
+    - [x] 11.4.1 Analyze `src/pricing_pipeline.py` to identify core business logic vs orchestration
+    - [x] 11.4.2 Move core processing logic from `run_pricing_pipeline()` into `PricingService._run_pipeline()`
+    - [x] 11.4.3 Update `PricingService` to handle the full pipeline orchestration internally
+    - [x] 11.4.4 Ensure `PricingService` maintains the same interface for API and CLI consumers
+    - [x] 11.4.5 Update CLI and API code to use the enhanced `PricingService` directly
+    - [x] 11.4.6 Remove `src/pricing_pipeline.py` after successful integration
+    - [x] 11.4.7 Update tests to use `PricingService` instead of pipeline function
+    - [x] 11.4.8 Verify all existing functionality works correctly after integration
+    - [x] 11.4.9 **Comprehensive Testing Phase 4:**
+      - [x] 11.4.9.1 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose`
+      - [x] 11.4.9.2 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline` (all locations)
+      - [x] 11.4.9.3 Test CLI functionality: `python3 src/pricing_cli.py check-pricing --year 2024 --month 7`
+      - [x] 11.4.9.4 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing/Pacific%20Place"`
+      - [x] 11.4.9.5 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing"`
+      - [x] 11.4.9.6 Test Google Chat integration: Send `/po-price Pacific Place` via Google Chat
+      - [x] 11.4.9.7 Test Google Chat integration: Send `/po-price Pacific Place 2024-07` via Google Chat
+      - [x] 11.4.9.8 Verify all pricing calculations produce identical results to before refactoring
+      - [x] 11.4.9.9 Verify published prices are still displayed correctly in all outputs
+      - [x] 11.4.9.10 Verify smart target calculations still work correctly
+      - [x] 11.4.9.11 Verify error handling works correctly in all interfaces
+      - [x] 11.4.9.12 Run full test suite: `pytest tests/`
+  - [x] 11.5 Clean Up Legacy Files (Low Impact, Low Risk)
+    - [x] 11.5.1 Remove `src/po_pricing_engine.py` after extracting its functions
+    - [x] 11.5.2 Update any remaining references to legacy modules
+    - [x] 11.5.3 Verify no broken imports remain in the codebase
+    - [x] 11.5.4 Run full test suite to ensure no regressions
+    - [x] 11.5.5 **Comprehensive Testing Phase 5:**
+      - [x] 11.5.5.1 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose`
+      - [x] 11.5.5.2 Test CLI functionality: `python3 src/pricing_cli.py check-pricing --year 2024 --month 7`
+      - [x] 11.5.5.3 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing/Pacific%20Place"`
+      - [x] 11.5.5.4 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing"`
+      - [x] 11.5.5.5 Test Google Chat integration: Send `/po-price Pacific Place` via Google Chat
+      - [x] 11.5.5.6 Verify no import errors occur in any module
+      - [x] 11.5.5.7 Verify all functionality works exactly as before cleanup
+      - [x] 11.5.5.8 Run full test suite: `pytest tests/`
+  - [x] 11.6 Update Documentation and File References
+    - [x] 11.6.1 Update the "Relevant Files" section in this document to reflect new structure
+    - [x] 11.6.2 Update any README files or documentation that reference moved files
+    - [x] 11.6.3 Update import examples in documentation
+    - [x] 11.6.4 Verify all documentation is accurate after refactoring
+    - [x] 11.6.5 **Final Comprehensive Testing:**
+      - [x] 11.6.5.1 Test CLI functionality: `python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose`
+      - [x] 11.6.5.2 Test CLI functionality: `python3 src/pricing_cli.py check-pricing --year 2024 --month 7`
+      - [x] 11.6.5.3 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing/Pacific%20Place"`
+      - [x] 11.6.5.4 Test Web API: `curl -X GET "http://localhost:8000/api/v1/pricing"`
+      - [x] 11.6.5.5 Test Google Chat integration: Send `/po-price Pacific Place` via Google Chat
+      - [x] 11.6.5.6 Test Google Chat integration: Send `/po-price Pacific Place 2024-07` via Google Chat
+      - [x] 11.6.5.7 Verify all documentation examples work correctly
+      - [x] 11.6.5.8 Run full test suite: `pytest tests/`
+      - [x] 11.6.5.9 Perform end-to-end testing with real data to ensure no regressions

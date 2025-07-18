@@ -10,18 +10,33 @@ from typing import Optional, Callable, Any, TypeVar, Union
 from functools import wraps
 from contextlib import contextmanager
 
-from src.exceptions.pricing_exceptions import (
-    PricingEngineException,
-    ErrorContext,
-    DataNotFoundException,
-    ConfigurationException,
-    DataValidationException,
-    ExternalServiceException,
-    CalculationException,
-    DatabaseException,
-    LLMServiceException,
-    ParsingException,
-)
+try:
+    from src.exceptions.pricing_exceptions import (
+        PricingEngineException,
+        ErrorContext,
+        DataNotFoundException,
+        ConfigurationException,
+        DataValidationException,
+        ExternalServiceException,
+        CalculationException,
+        DatabaseException,
+        LLMServiceException,
+        ParsingException,
+    )
+except ImportError:
+    # Fallback for when running the script directly
+    from exceptions.pricing_exceptions import (
+        PricingEngineException,
+        ErrorContext,
+        DataNotFoundException,
+        ConfigurationException,
+        DataValidationException,
+        ExternalServiceException,
+        CalculationException,
+        DatabaseException,
+        LLMServiceException,
+        ParsingException,
+    )
 
 # Type variable for return type
 T = TypeVar("T")

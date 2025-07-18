@@ -8,7 +8,11 @@ def build_rules(location: str, cfg: Dict[str, Any]) -> PricingRules:
     loc_cfg = cfg.get("locations", {}).get(location, {})
 
     # Validate smart target configuration
-    use_smart_target = loc_cfg.get("use_smart_target", False)
+    use_smart_target = loc_cfg.get("use_smart_target")
+    if use_smart_target is None:
+        raise ValueError(
+            f"Location '{location}' must have 'use_smart_target' configured"
+        )
     static_target = loc_cfg.get("target_breakeven_occupancy")
 
     # Only validate if smart targets are enabled AND we have a static target to validate
@@ -51,7 +55,11 @@ def get_target_breakeven_occupancy(
         tuple[float, bool]: (target_breakeven_occupancy, is_smart_target)
     """
     loc_cfg = cfg.get("locations", {}).get(location, {})
-    use_smart_target = loc_cfg.get("use_smart_target", False)
+    use_smart_target = loc_cfg.get("use_smart_target")
+    if use_smart_target is None:
+        raise ValueError(
+            f"Location '{location}' must have 'use_smart_target' configured"
+        )
 
     # If smart targets are enabled and we have the required data, calculate smart target
     if (
@@ -98,7 +106,12 @@ def get_target_breakeven_occupancy(
 def is_smart_target_enabled(location: str, cfg: Dict[str, Any]) -> bool:
     """Check if smart target breakeven occupancy is enabled for a location."""
     loc_cfg = cfg.get("locations", {}).get(location, {})
-    return loc_cfg.get("use_smart_target", False)
+    use_smart_target = loc_cfg.get("use_smart_target")
+    if use_smart_target is None:
+        raise ValueError(
+            f"Location '{location}' must have 'use_smart_target' configured"
+        )
+    return use_smart_target
 
 
 def validate_smart_target_configuration(cfg: Dict[str, Any]) -> None:
@@ -106,7 +119,11 @@ def validate_smart_target_configuration(cfg: Dict[str, Any]) -> None:
     locations = cfg.get("locations", {})
 
     for location_name, loc_cfg in locations.items():
-        use_smart_target = loc_cfg.get("use_smart_target", False)
+        use_smart_target = loc_cfg.get("use_smart_target")
+        if use_smart_target is None:
+            raise ValueError(
+                f"Location '{location_name}' must have 'use_smart_target' configured"
+            )
 
         if use_smart_target:
             # Only validate if we have a static target to validate

@@ -11,8 +11,12 @@ Pricing Engine Operations:
     python3 src/pricing_cli.py --help
 
 Examples:
-    # Fetch Zoho data
-    python3 src/zoho_cli.py fetch-and-save --report pnl_sms_by_month --year 2025 --month 5
+    # Zoho Analytics operations (RECOMMENDED: use upsert commands)
+    python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
+    python3 src/zoho_cli.py upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
+
+    # Legacy Zoho commands (WARNING: fetch-replace replaces entire table)
+    python3 src/zoho_cli.py fetch-replace --report pnl_sms_by_month --year 2025 --month 5
 
     # Run pricing pipeline
     python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
@@ -30,10 +34,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Zoho Analytics operations
-    python3 src/zoho_cli.py fetch-and-save --report pnl_sms_by_month --year 2025 --month 5
+    # Zoho Analytics operations (RECOMMENDED)
+    python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
+    python3 src/zoho_cli.py upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
     python3 src/zoho_cli.py load --report pnl_sms_by_month
-    python3 src/zoho_cli.py clear-and-reload --report pnl_sms_by_month --year 2025 --month 5
+
+    # Legacy Zoho commands (WARNING: fetch-replace replaces entire table)
+    python3 src/zoho_cli.py fetch-replace --report pnl_sms_by_month --year 2025 --month 5
 
     # Pricing operations
     python3 src/pricing_cli.py run-pipeline

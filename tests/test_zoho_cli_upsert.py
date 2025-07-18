@@ -17,8 +17,7 @@ from typing import Optional
 from src.zoho_cli import (
     upsert_data,
     upsert_data_range,
-    fetch_and_save,
-    clear_and_reload,
+    fetch_replace,
     main,
 )
 
@@ -152,13 +151,13 @@ class TestZohoCliMain:
                     "pnl_sms_by_month", 2025, 1, 2025, 5
                 )
 
-    def test_main_legacy_fetch_and_save_command(self):
-        """Test main function with legacy fetch-and-save command."""
+    def test_main_legacy_fetch_replace_command(self):
+        """Test main function with legacy fetch-replace command."""
         with patch(
             "sys.argv",
             [
                 "zoho_cli.py",
-                "fetch-and-save",
+                "fetch-replace",
                 "--report",
                 "pnl_sms_by_month",
                 "--year",
@@ -167,32 +166,11 @@ class TestZohoCliMain:
                 "5",
             ],
         ):
-            with patch("src.zoho_cli.fetch_and_save") as mock_fetch:
+            with patch("src.zoho_cli.fetch_replace") as mock_fetch:
                 main()
 
-                # Verify fetch_and_save was called
+                # Verify fetch_replace was called
                 mock_fetch.assert_called_once_with("pnl_sms_by_month", 2025, 5)
-
-    def test_main_legacy_clear_and_reload_command(self):
-        """Test main function with legacy clear-and-reload command."""
-        with patch(
-            "sys.argv",
-            [
-                "zoho_cli.py",
-                "clear-and-reload",
-                "--report",
-                "pnl_sms_by_month",
-                "--year",
-                "2025",
-                "--month",
-                "5",
-            ],
-        ):
-            with patch("src.zoho_cli.clear_and_reload") as mock_clear:
-                main()
-
-                # Verify clear_and_reload was called
-                mock_clear.assert_called_once_with("pnl_sms_by_month", 2025, 5)
 
     def test_main_load_command(self):
         """Test main function with load command."""

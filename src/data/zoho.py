@@ -13,14 +13,14 @@ MAX_RETRIES = 3
 RETRY_DELAY_MULTIPLIER = 2  # exponential backoff multiplier
 
 try:
-    from src.sqlite_storage import (
+    from src.data.storage import (
         delete_from_sqlite_by_year_month,
         delete_from_sqlite_by_range,
         save_to_sqlite,
     )
 except ImportError:
     # Fallback for when running the script directly
-    from sqlite_storage import (
+    from data.storage import (
         delete_from_sqlite_by_year_month,
         delete_from_sqlite_by_range,
         save_to_sqlite,
@@ -247,9 +247,9 @@ def upsert_private_office_occupancies_by_building(date: str):
     If no data exists, it will be inserted.
     """
     try:
-        from src.sqlite_storage import delete_from_sqlite_by_date, save_to_sqlite
+        from src.data.storage import delete_from_sqlite_by_date, save_to_sqlite
     except ImportError:
-        from sqlite_storage import delete_from_sqlite_by_date, save_to_sqlite
+        from data.storage import delete_from_sqlite_by_date, save_to_sqlite
 
     # First, delete any existing data for this date
     delete_from_sqlite_by_date("private_office_occupancies_by_building", date)
@@ -270,9 +270,9 @@ def upsert_private_office_occupancies_by_building_range(start_date: str, end_dat
     If no data exists, it will be inserted.
     """
     try:
-        from src.sqlite_storage import delete_from_sqlite_by_date_range, save_to_sqlite
+        from src.data.storage import delete_from_sqlite_by_date_range, save_to_sqlite
     except ImportError:
-        from sqlite_storage import delete_from_sqlite_by_date_range, save_to_sqlite
+        from data.storage import delete_from_sqlite_by_date_range, save_to_sqlite
     from datetime import datetime, timedelta
 
     # First, delete any existing data for the entire range
