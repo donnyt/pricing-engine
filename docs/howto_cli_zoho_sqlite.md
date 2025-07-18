@@ -1,213 +1,140 @@
-# HOWTO: Using the CLI and API for Pricing Engine
+# HOWTO: Using the CLI and API for the Pricing Engine
 
-This guide explains how to use the CLI to fetch data from Zoho Analytics, store it in SQLite, run the pricing engine, and use the unified FastAPI application for API access and Google Chat integration.
+This guide explains how to fetch data from Zoho Analytics, store it in SQLite, run the pricing engine, and use the FastAPI application for API and Google Chat integration.
 
 ---
 
 ## 1. Prerequisites
-- Python 3.7+
-- Install dependencies:
+- **Python 3.8+**
+- **Install dependencies:**
   ```sh
   pip install -r requirements.txt
   ```
-- Set up required environment variables (see below).
+- **Set environment variables:**
+  ```sh
+  export ZOHO_CLIENT_ID="your_client_id"
+  export ZOHO_CLIENT_SECRET="your_client_secret"
+  export ZOHO_REFRESH_TOKEN="your_refresh_token"
+  export OPENAI_API_KEY="sk-..."  # For LLM reasoning (optional)
+  ```
 
 ---
 
-## 2. Environment Variables
-Set your credentials in your shell (recommended):
-```sh
-export ZOHO_CLIENT_ID="your_client_id"
-export ZOHO_CLIENT_SECRET="your_client_secret"
-export ZOHO_REFRESH_TOKEN="your_refresh_token"
-export OPENAI_API_KEY="sk-..."  # For LLM reasoning
-```
+## 2. CLI Structure
+
+- **Zoho Analytics CLI** (`src/zoho_cli.py`):
+  - Fetch, upsert, and preview data from Zoho Analytics
+  - Manage daily occupancy and monthly P&L data
+- **Pricing Engine CLI** (`src/pricing_cli.py`):
+  - Run pricing pipeline and display results
+- **Main CLI Wrapper** (`src/cli.py`):
+  - Unified entry point that routes to the above modules
 
 ---
 
-## 3. CLI Structure
+## 3. Loading Data from Zoho Analytics
 
-The pricing engine CLI has been split into specialized modules for better organization:
+### Monthly Data (`pnl_sms_by_month`)
+- **Upsert a single month:**
+  ```sh
+  python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
+  ```
+- **Upsert a range of months:**
+  ```sh
+  python3 src/zoho_cli.py upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
+  ```
 
-### Zoho Analytics CLI (`src/zoho_cli.py`)
-Handles all Zoho Analytics data operations:
-- Fetch and save data from Zoho Analytics
-- Load and preview data from SQLite
-- Clear and reload data for specific periods
-- **Manage daily occupancy data from the `private_office_occupancies_by_building` table**
+### Daily Occupancy Data (`private_office_occupancies_by_building`)
+- **Upsert for today (recommended for daily use):**
+  ```sh
+  python3 src/zoho_cli.py upsert-daily-occupancy
+  ```
+- **Upsert for a specific date:**
+  ```sh
+  python3 src/zoho_cli.py upsert-daily-occupancy --date 2025-01-15
+  ```
+- **Upsert for a date range (recommended for historical/batch updates):**
+  ```sh
+  python3 src/zoho_cli.py upsert-daily-occupancy-range --start-date 2025-01-01 --end-date 2025-01-31
+  ```
 
-### Pricing Engine CLI (`src/pricing_cli.py`)
-Handles all pricing-related operations:
-- Run pricing pipeline for locations
-- Check pricing with verbose output
-- Format and display pricing results
-
-### Main CLI Wrapper (`src/cli.py`)
-Provides a unified entry point that directs to the appropriate specialized module.
-
----
-
-## 4. Upsert Zoho Analytics Data (Recommended)
-
-### Monthly Data (pnl_sms_by_month)
-Upsert a report (e.g., `pnl_sms_by_month`) to SQLite (insert if not exists, delete and reinsert if exists):
-```sh
-# Single month
-python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
-
-# Range of months
-python3 src/zoho_cli.py upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
-```
-
-### Daily Occupancy Data (private_office_occupancies_by_building)
-**NEW**: The pricing engine now uses daily occupancy data for more responsive pricing calculations. You can fetch and manage daily occupancy data using these commands:
-
-```sh
-# Fetch daily occupancy data for today (default)
-python3 src/zoho_cli.py fetch-daily-occupancy
-
-# Fetch daily occupancy data for a specific date
-python3 src/zoho_cli.py fetch-daily-occupancy --date 2025-01-15
-
-# Upsert daily occupancy data for today (default) - recommended for production
-python3 src/zoho_cli.py upsert-daily-occupancy
-
-# Upsert daily occupancy data for a specific date
-python3 src/zoho_cli.py upsert-daily-occupancy --date 2025-01-15
-
-# Upsert daily occupancy data for a date range
-python3 src/zoho_cli.py upsert-daily-occupancy-range --start-date 2025-01-01 --end-date 2025-01-31
-```
-
-**Note**:
-- Data is saved to `data/zoho_data.db` under the table `private_office_occupancies_by_building`.
-- The `upsert` commands are recommended for production use as they ensure data freshness by deleting and reinserting existing data.
-- Date format must be `YYYY-MM-DD` (e.g., `2025-01-15`).
-- When no date is specified, the commands default to today's date.
+**Notes:**
+- Data is saved to `data/zoho_data.db`.
+- The `upsert` commands ensure data freshness by replacing existing data for the specified period.
+- Date format: `YYYY-MM-DD`.
 
 ---
 
-## 5. Preview Data
-Print the first few rows of a table:
-```sh
-# Preview monthly data
-python3 src/zoho_cli.py load --report pnl_sms_by_month
-
-# Preview daily occupancy data
-python3 src/zoho_cli.py load --report private_office_occupancies_by_building
-```
+## 4. Previewing Data
+- **Preview monthly data:**
+  ```sh
+  python3 src/zoho_cli.py load --report pnl_sms_by_month
+  ```
+- **Preview daily occupancy data:**
+  ```sh
+  python3 src/zoho_cli.py load --report private_office_occupancies_by_building
+  ```
 
 ---
 
-## 6. Run the Pricing Pipeline CLI
-You can run the pricing pipeline for all locations or a single location, for any month/year, and with LLM reasoning output.
+## 5. Running the Pricing Pipeline
 
-### Parameters
-- `--location` (optional): Name of a single location/building (default: all locations)
-- `--month` (optional): Target month (1-12, default: current month)
-- `--year` (optional): Target year (default: current year)
-- `--verbose` (optional): Show LLM reasoning for each price recommendation
+### Key Parameters
+- `--location`: Filter by building/location name
+- `--target-date`: Use a specific date as anchor (default: today)
+- `--verbose`: Show detailed output and LLM reasoning
+- `--no-auto-fetch`: Disable automatic fetching from Zoho if data is missing
 
 ### Usage Examples
-- **All locations, current month:**
+- **All locations, using today as anchor:**
   ```sh
   python3 src/pricing_cli.py run-pipeline
   ```
-- **All locations, specific month/year:**
-  ```sh
-  python3 src/pricing_cli.py run-pipeline --year 2024 --month 7
-  ```
-- **Single location (e.g., Pacific Place), current month:**
+- **Single location:**
   ```sh
   python3 src/pricing_cli.py run-pipeline --location "Pacific Place"
   ```
-- **Single location, specific month/year, with LLM reasoning:**
+- **Verbose output (with LLM reasoning):**
   ```sh
-  python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --year 2024 --month 7 --verbose
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
+  ```
+- **Specific anchor date:**
+  ```sh
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --target-date 2025-07-15
   ```
 
-#### LLM Reasoning Output
-- Use `--verbose` to include a "Reasoning" section for each location, generated by an LLM (e.g., GPT-4o via OpenAI API).
-- Make sure your `OPENAI_API_KEY` is set.
-- Example output:
-  ```
-  Pacific Place:
-    Latest Occupancy: 80%
-    Breakeven Occupancy: 73%
-    Published Price: 3,500,000
-    Recommended Price: 3,500,000
-    Reasoning: The recommended price of Rp 3,500,000 is justified given the current occupancy rate of 80%, which is above the breakeven occupancy of 73%. ...
-  ```
+**Tip:** Use `--verbose` to see LLM-generated explanations for each price recommendation.
 
 ---
 
-## 7. Unified FastAPI Application
+## 6. Unified FastAPI Application
 
-The project now uses a unified FastAPI application (`src/app.py`) that combines both API endpoints and Google Chat webhook functionality.
-
-### Starting the Server
-```sh
-source venv/bin/activate
-PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Available Endpoints
-
-#### API Endpoints (REST API)
-- **Health Check**: `GET /api/v1/health`
-- **Single Location Pricing**: `GET /api/v1/pricing/{location}?year=2024&month=7`
-- **All Locations Pricing**: `GET /api/v1/pricing?year=2024&month=7`
-
-#### Webhook Endpoints
-- **Google Chat Webhook**: `POST /webhook/google-chat`
-
-#### Documentation
-- **API Documentation**: `GET /docs` (Swagger UI)
-- **OpenAPI Spec**: `GET /openapi.json`
+- **Start the server:**
+  ```sh
+  source venv/bin/activate
+  PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
+  ```
+- **API Endpoints:**
+  - Health: `GET /api/v1/health`
+  - Single Location: `GET /api/v1/pricing/{location}?year=2024&month=7`
+  - All Locations: `GET /api/v1/pricing?year=2024&month=7`
+  - Google Chat Webhook: `POST /webhook/google-chat`
+  - Docs: `GET /docs`
 
 ### Example API Usage
-
-#### Get pricing for a specific location:
-```sh
-curl "http://localhost:8000/api/v1/pricing/ASG%20Tower?month=7"
-```
-
-#### Get pricing for all locations:
-```sh
-curl "http://localhost:8000/api/v1/pricing"
-```
-
-#### Test Google Chat webhook:
-```sh
-curl -X POST http://localhost:8000/webhook/google-chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "MESSAGE",
-    "eventTime": "2024-01-01T00:00:00Z",
-    "space": {"name": "spaces/test"},
-    "user": {"name": "users/test"},
-    "message": {"text": "/po-price Chubb Square"}
-  }'
-```
-
-### API Response Format
-The API returns JSON responses with the following structure:
-```json
-{
-  "building_name": "ASG Tower",
-  "occupancy_pct": 65.0,
-  "breakeven_occupancy_pct": 40.0,
-  "recommended_price": 2800000.0,
-  "losing_money": false,
-  "manual_override": null,
-  "llm_reasoning": "[LLM reasoning unavailable: OPENAI_API_KEY not set]",
-  "published_price": 2800000.0
-}
-```
+- **Get pricing for a location:**
+  ```sh
+  curl "http://localhost:8000/api/v1/pricing/ASG%20Tower?month=7"
+  ```
+- **Get pricing for all locations:**
+  ```sh
+  curl "http://localhost:8000/api/v1/pricing"
+  ```
 
 ---
 
-## 8. Example Workflow
+## 7. Example Workflow
+
 ```sh
 # Set credentials
 export ZOHO_CLIENT_ID=...
@@ -218,10 +145,10 @@ export OPENAI_API_KEY=...
 # Install dependencies
 pip install -r requirements.txt
 
-# Upsert monthly data (recommended)
+# Upsert monthly data
 python3 src/zoho_cli.py upsert --report pnl_sms_by_month --year 2025 --month 5
 
-# Upsert daily occupancy data (recommended for responsive pricing)
+# Upsert daily occupancy data
 python3 src/zoho_cli.py upsert-daily-occupancy
 
 # Preview data
@@ -231,45 +158,45 @@ python3 src/zoho_cli.py load --report private_office_occupancies_by_building
 # Run pricing pipeline for a single location with LLM reasoning
 python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
 
-# Start the unified FastAPI server
+# Start the FastAPI server
 source venv/bin/activate
 PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## 9. Daily Occupancy Data Management
-
-### Why Daily Occupancy Data?
-The pricing engine now uses daily occupancy data instead of monthly averages for more responsive and accurate pricing calculations. This provides:
-- **Real-time insights**: Pricing based on the latest daily occupancy information
-- **Better accuracy**: More granular data for dynamic pricing decisions
-- **Responsive pricing**: Faster adaptation to occupancy changes
-
-### Daily Occupancy Data Commands Summary
+## 8. Daily Occupancy Data: Best Practices
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `fetch-daily-occupancy` | Fetch daily occupancy data (defaults to today) | `python3 src/zoho_cli.py fetch-daily-occupancy` |
-| `fetch-daily-occupancy --date` | Fetch for specific date | `python3 src/zoho_cli.py fetch-daily-occupancy --date 2025-01-15` |
-| `upsert-daily-occupancy` | Upsert daily occupancy data (defaults to today) | `python3 src/zoho_cli.py upsert-daily-occupancy` |
+| `upsert-daily-occupancy` | Upsert for today | `python3 src/zoho_cli.py upsert-daily-occupancy` |
 | `upsert-daily-occupancy --date` | Upsert for specific date | `python3 src/zoho_cli.py upsert-daily-occupancy --date 2025-01-15` |
 | `upsert-daily-occupancy-range` | Upsert for date range | `python3 src/zoho_cli.py upsert-daily-occupancy-range --start-date 2025-01-01 --end-date 2025-01-31` |
 | `load --report private_office_occupancies_by_building` | Preview daily occupancy data | `python3 src/zoho_cli.py load --report private_office_occupancies_by_building` |
 
-### Best Practices for Daily Occupancy Data
-1. **Regular Updates**: Run `upsert-daily-occupancy` daily to keep data fresh
-2. **Batch Updates**: Use `upsert-daily-occupancy-range` for historical data or bulk updates
-3. **Data Validation**: Use `load --report private_office_occupancies_by_building` to verify data quality
-4. **Integration**: The pricing engine automatically uses the latest daily occupancy data for calculations
+**Best Practices:**
+- Run `upsert-daily-occupancy` daily to keep data fresh
+- Use `upsert-daily-occupancy-range` for historical or batch updates
+- Use `load` to verify data quality
+- The pricing engine always uses the latest daily occupancy data for calculations
 
 ---
 
-## 10. Notes
-- The CLI expects to be run from the project root directory.
-- The unified FastAPI app serves both API endpoints and Google Chat webhook on port 8000.
-- For troubleshooting, ensure your environment variables are set and dependencies are installed.
-- You can add support for more reports by extending the CLI and integration code.
-- The Google Chat webhook endpoint (`/webhook/google-chat`) is designed to handle Google Chat bot events and responds with formatted text messages.
-- **Daily occupancy data provides more responsive pricing calculations compared to monthly averages.**
-- **The pricing engine now automatically uses the latest daily occupancy data when available.**
+## 9. Troubleshooting & Tips
+
+- **No data found:** Make sure you have loaded both monthly and daily data for the relevant dates/locations
+- **Zoho API errors:** Check your credentials and rate limits
+- **Formatting errors:** Ensure you are using the latest code and clear `.pyc` files if needed
+- **LLM reasoning unavailable:** Set your `OPENAI_API_KEY` environment variable
+- **Run from project root:** The CLI expects to be run from the project root directory
+
+---
+
+## 10. Summary
+- Use the Zoho CLI to keep your data up to date
+- Preview your data before running the pricing pipeline
+- Use the pricing CLI for actionable recommendations
+- The FastAPI app provides API and Google Chat integration
+- Daily occupancy data enables more responsive, accurate pricing
+
+For more details, see the main `README.md` or open an issue for help.

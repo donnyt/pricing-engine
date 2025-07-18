@@ -89,19 +89,27 @@ def run_pricing_pipeline(
             continue
 
         # Calculate 7-day average occupancy for this location
-        location_daily_data = input_df[
-            (input_df["building_name"] == loc)
-            & (input_df["po_seats_occupied_actual_pct"].notna())
-        ]
+        if "po_seats_occupied_actual_pct" in input_df.columns:
+            location_daily_data = input_df[
+                (input_df["building_name"] == loc)
+                & (input_df["po_seats_occupied_actual_pct"].notna())
+            ]
+        else:
+            # If the column doesn't exist, use empty DataFrame
+            location_daily_data = pd.DataFrame()
 
         # Use daily occupancy data if available, fallback to monthly
         if not location_daily_data.empty:
             # Calculate 7-day average occupancy
-            daily_occupancies = [
-                parse_pct(occ)
-                for occ in location_daily_data["po_seats_occupied_actual_pct"]
-                if parse_pct(occ) is not None
-            ]
+            daily_occupancies = []
+            for occ in location_daily_data["po_seats_occupied_actual_pct"]:
+                parsed = parse_pct(occ)
+                if parsed is not None:
+                    daily_occupancies.append(parsed)
+                else:
+                    print(
+                        f"Warning: Could not parse po_seats_occupied_actual_pct value '{occ}' for location {loc}"
+                    )
             if daily_occupancies:
                 occupancy_pct = round(
                     sum(daily_occupancies) / len(daily_occupancies), 1
@@ -111,11 +119,13 @@ def run_pricing_pipeline(
                 unique_dates = location_daily_data["date"].nunique()
                 daily_occupancy = f"{unique_dates} days avg"
             else:
-                occupancy_pct = parse_pct(row.get("po_seats_occupied_actual_pct"))
+                # Fallback to single day data with column fallback logic
+                occupancy_pct = _get_occupancy_with_fallback(row)
                 data_source = "single day"
                 daily_occupancy = row.get("po_seats_occupied_actual_pct")
         else:
-            occupancy_pct = parse_pct(row.get("po_seats_occupied_actual_pct"))
+            # Fallback to single day data with column fallback logic
+            occupancy_pct = _get_occupancy_with_fallback(row)
             if occupancy_pct is not None:
                 occupancy_pct = round(occupancy_pct, 1)
             data_source = "single day"
@@ -125,10 +135,15 @@ def run_pricing_pipeline(
 
         # Fallback to monthly if no daily data available
         if occupancy_pct is None:
-            occupancy_pct = parse_pct(monthly_occupancy)
+            occupancy_pct = _get_occupancy_with_fallback(row)
             if occupancy_pct is not None:
                 occupancy_pct = round(occupancy_pct, 1)
             data_source = "monthly"
+            if occupancy_pct is None:
+                print(
+                    f"Warning: No occupancy data available for {loc} (row: {row.to_dict()})"
+                )
+                continue
 
         # Debug output for Pacific Place
         if loc.lower() == "pacific place":
@@ -343,3 +358,29 @@ def load_merged_pricing_data_simple(
     else:
         print("No data available from either table.")
         return pd.DataFrame()
+
+
+def _get_occupancy_with_fallback(row):
+    """
+    Get occupancy percentage with fallback logic for different column names.
+
+    Args:
+        row: DataFrame row containing occupancy data
+
+    Returns:
+        float: Parsed occupancy percentage or None if not available
+    """
+    # Try different column names in order of preference
+    columns_to_try = [
+        "po_seats_occupied_actual_pct",
+        "po_seats_actual_occupied_pct",
+        "po_seats_occupied_pct",
+    ]
+
+    for col in columns_to_try:
+        if col in row and row[col] is not None:
+            parsed = parse_pct(row[col])
+            if parsed is not None:
+                return parsed
+
+    return None

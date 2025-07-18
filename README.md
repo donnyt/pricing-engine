@@ -1,126 +1,122 @@
 # Pricing Engine
 
-A comprehensive pricing engine for private office spaces with Google Chat integration, Zoho Analytics data management, and LLM-powered reasoning.
+## Overview
 
-## 🏗️ Project Structure
+The Pricing Engine is a Python tool for calculating recommended prices for private office spaces based on financial and occupancy data. It integrates with Zoho Analytics to fetch up-to-date data, stores it in a local SQLite database, and provides a CLI for running pricing calculations and generating actionable recommendations.
 
-```
-pricing-engine/
-├── src/                    # Main application code
-│   ├── app.py             # Unified FastAPI app (API + Google Chat webhook)
-│   ├── cli.py             # CLI wrapper for specialized modules
-│   ├── pricing_cli.py     # Pricing operations CLI
-│   ├── zoho_cli.py        # Zoho data management CLI
-│   ├── pricing/           # Core pricing logic
-│   │   ├── service.py     # Pricing service layer
-│   │   ├── calculator.py  # Price calculation logic
-│   │   ├── formatter.py   # Output formatting
-│   │   └── models.py      # Data models
-│   ├── utils/             # Utility functions
-│   └── ...
-├── config/                # Configuration files
-│   ├── pricing_rules.yaml # Pricing rules and parameters
-│   └── credentials/       # Service account credentials
-├── data/                  # Data storage
-│   └── zoho_data.db      # SQLite database
-├── scripts/               # Standalone utility scripts
-├── tests/                 # Test files
-├── docs/                  # Documentation
-└── tasks/                 # Project requirements and schemas
-```
+**Main features:**
+- Fetches and stores monthly P&L and daily occupancy data from Zoho Analytics
+- Calculates 7-day average occupancy for robust pricing
+- Computes recommended prices using configurable rules and dynamic multipliers
+- Supports published price history and LLM-based reasoning for recommendations
+- CLI for running the full pricing pipeline, checking data, and troubleshooting
 
-## 🚀 Quick Start
+---
 
-### 1. Setup Environment
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+## Data Sources & Key Concepts
 
-# Install dependencies
-pip install -r requirements.txt
+- **Zoho Analytics**: Source of financial (P&L) and occupancy data
+- **SQLite Database**: Local storage (`data/zoho_data.db`) for all imported and calculated data
+- **Tables**:
+  - `pnl_sms_by_month`: Monthly financials (revenue, expenses, etc)
+  - `private_office_occupancies_by_building`: Daily occupancy by location
+  - `published_prices`: Published price history
+- **7-Day Average Occupancy**: Used for pricing, calculated from the 7 days prior to the target date
+- **Published Price**: The current/last published price for each location
 
-# Initialize database with proper schema
-make init-db
+---
 
-# Set environment variables
-export OPENAI_API_KEY="your-openai-api-key"
-```
+## Setup
 
-### 2. Run the Application
-```bash
-# Start the unified FastAPI server
-PYTHONPATH=. uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
-```
+1. **Clone the repository**
+2. **Install Python 3.8+ and pip**
+3. **Install dependencies:**
+   ```sh
+   pip install -r requirements.txt
+   ```
+4. **Initialize the database schema:**
+   ```sh
+   python3 scripts/init_database.py
+   ```
+5. **Set up Zoho credentials:**
+   - Export your Zoho API credentials as environment variables (see `config/credentials/`)
+   - Example:
+     ```sh
+     export ZOHO_CLIENT_ID=your_client_id
+     export ZOHO_CLIENT_SECRET=your_client_secret
+     export ZOHO_REFRESH_TOKEN=your_refresh_token
+     ```
 
-### 3. Use CLI Tools
-```bash
-# Zoho data management (upsert - recommended)
-python3 src/cli.py zoho upsert --report pnl_sms_by_month --year 2025 --month 5
+---
 
-# Zoho data management for a range of months
-python3 src/cli.py zoho upsert-range --report pnl_sms_by_month --start-year 2025 --start-month 1 --end-year 2025 --end-month 5
+## Loading Data from Zoho Analytics
 
-# Pricing operations
-python3 src/cli.py pricing run-pipeline --location "Pacific Place" --verbose
-```
+To fetch and store data from Zoho Analytics into your local database:
 
-## 📋 API Endpoints
+- **Monthly P&L data:**
+  ```sh
+  python3 src/cli.py zoho upsert --report pnl_sms_by_month --year 2025 --month 1
+  ```
+- **Daily occupancy data:**
+  ```sh
+  python3 src/cli.py zoho upsert --report private_office_occupancies_by_building --date 2025-01-15
+  ```
 
-- **Health Check**: `GET /api/v1/health`
-- **Single Location Pricing**: `GET /api/v1/pricing/{location}`
-- **All Locations Pricing**: `GET /api/v1/pricing`
-- **Google Chat Webhook**: `POST /webhook/google-chat`
+Repeat for all months/dates you want to analyze.
 
-## 💬 Google Chat Integration
+---
 
-The bot responds to `/po-price` commands:
-- `/po-price <location>` - Get pricing for current month
-- `/po-price <location> <YYYY-MM>` - Get pricing for specific month
+## Running the Pricing Pipeline
 
-## 🔧 Configuration
+The main CLI is `src/pricing_cli.py`. You can run the pricing pipeline for all or specific locations:
 
-- **Pricing Rules**: `config/pricing_rules.yaml`
-- **Service Account**: `config/credentials/service-account.json`
-- **Database**: `data/zoho_data.db`
+- **For all locations (using today as anchor):**
+  ```sh
+  python3 src/pricing_cli.py run-pipeline
+  ```
+- **For a specific location:**
+  ```sh
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place"
+  ```
+- **With verbose output (includes LLM reasoning):**
+  ```sh
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --verbose
+  ```
+- **For a specific date (anchor):**
+  ```sh
+  python3 src/pricing_cli.py run-pipeline --location "Pacific Place" --target-date 2025-07-15
+  ```
 
-## 📚 Documentation
+**Parameters:**
+- `--location`: Filter by building/location name
+- `--target-date`: Use a specific date as anchor (default: today)
+- `--verbose`: Show detailed output and LLM reasoning
+- `--no-auto-fetch`: Disable automatic fetching from Zoho if data is missing
 
-- [CLI Usage Guide](docs/howto_cli_zoho_sqlite.md)
-- [Project Requirements](tasks/prd-po-pricing-engine.md)
+---
 
-## 🧪 Testing
+## Interpreting the Output
 
-```bash
-# Run all tests
-python3 -m pytest tests/
+- **Latest Occupancy**: 7-day average prior to the anchor date
+- **Breakeven Occupancy**: Minimum occupancy needed to break even
+- **Dynamic Multiplier**: Applied based on occupancy bands
+- **Recommended Price**: Suggested price per seat
+- **Reasoning**: (if verbose) LLM-generated explanation
+- **Debug Section**: For Pacific Place, a detailed breakdown of occupancy data and date range
 
-# Run specific test
-python3 -m pytest tests/test_pricing_pipeline.py
-```
+---
 
-## 🗄️ Database Management
+## Troubleshooting
 
-The project uses SQLite for data storage with proper schema initialization:
+- **No data found**: Make sure you have loaded both monthly and daily data for the relevant dates/locations
+- **Zoho API errors**: Check your credentials and rate limits
+- **Formatting errors**: Ensure you are using the latest code (clear `.pyc` files if needed)
+- **LLM reasoning unavailable**: Set your `OPENAI_API_KEY` environment variable if you want LLM explanations
 
-### Initialize Database
-```bash
-# Initialize database with proper schema (recommended)
-make init-db
+---
 
-# Or run directly
-python3 scripts/init_database.py
+## Contributing & Support
 
-# Force recreation of existing database
-python3 scripts/init_database.py --force
-
-# Verify existing schema
-python3 scripts/init_database.py --verify-only
-```
-
-### Database Schema
-- **pnl_sms_by_month**: Financial data with proper numeric types (REAL, INTEGER)
-- **private_office_occupancies_by_building**: Daily occupancy data with proper types
-- **published_prices**: Published pricing history with proper constraints
-
-All tables are created with appropriate data types and indexes for optimal performance.
+- For issues, open a GitHub issue or contact the maintainer
+- PRs are welcome! Please follow PEP8 and clean code guidelines
+- For questions, reach out to the project owner
