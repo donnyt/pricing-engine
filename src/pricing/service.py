@@ -17,6 +17,7 @@ from src.pricing.calculator import PricingCalculator
 from src.sqlite_storage import load_from_sqlite
 from src.po_pricing_engine import load_pricing_rules
 from src.pricing_pipeline import run_pricing_pipeline
+from src.data.loader import DataLoaderService
 
 
 class PricingServiceInterface(ABC):
@@ -48,7 +49,7 @@ class PricingService(PricingServiceInterface):
     def __init__(self):
         """Initialize the pricing service with required dependencies."""
         self._config = None
-        self._data = None
+        self._data_loader = DataLoaderService()
 
     def _load_config(self) -> Dict[str, Any]:
         """Load pricing configuration (lazy loading)."""
@@ -56,11 +57,13 @@ class PricingService(PricingServiceInterface):
             self._config = load_pricing_rules()
         return self._config
 
-    def _load_data(self) -> pd.DataFrame:
-        """Load pricing data (lazy loading)."""
-        if self._data is None:
-            self._data = load_from_sqlite("pnl_sms_by_month")
-        return self._data
+    def _load_data(
+        self, target_date: Optional[str] = None, location: Optional[str] = None
+    ) -> pd.DataFrame:
+        """Load pricing data using DataLoaderService (lazy loading)."""
+        return self._data_loader.load_merged_pricing_data(
+            target_date, location, auto_fetch=True
+        )
 
     async def get_pricing_for_location(
         self, location: str, year: Optional[int] = None, month: Optional[int] = None
@@ -82,25 +85,16 @@ class PricingService(PricingServiceInterface):
         target_month = month if month is not None else now.month
 
         # Load data and config
-        df = self._load_data()
+        target_date = f"{target_year}-{target_month:02d}-01"  # Use first day of month
+        df = self._load_data(target_date, location)
         config = self._load_config()
 
         if df.empty:
             return None
 
-        # Normalize location name for matching
-        normalized_location = location.replace("-", " ").strip().lower()
-        location_data = df[
-            df["building_name"].astype(str).str.strip().str.lower()
-            == normalized_location
-        ]
-
-        if location_data.empty:
-            return None
-
-        # Run pricing pipeline
+        # Run pricing pipeline with the loaded data
         outputs = run_pricing_pipeline(
-            location_data,
+            df,
             config,
             target_year=target_year,
             target_month=target_month,
@@ -128,7 +122,8 @@ class PricingService(PricingServiceInterface):
         target_month = month if month is not None else now.month
 
         # Load data and config
-        df = self._load_data()
+        target_date = f"{target_year}-{target_month:02d}-01"  # Use first day of month
+        df = self._load_data(target_date)
         config = self._load_config()
 
         if df.empty:

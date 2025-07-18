@@ -12,6 +12,7 @@ from src.pricing.calculator import PricingCalculator
 from src.sqlite_storage import get_published_price
 from src.llm_reasoning import generate_llm_reasoning
 from src.po_pricing_engine import load_merged_pricing_data
+from src.data.loader import DataLoaderService
 
 
 def run_pricing_pipeline(
@@ -47,11 +48,11 @@ def run_pricing_pipeline(
         if target_date is None:
             target_date = datetime.date.today().strftime("%Y-%m-%d")
         # If target_year and target_month are provided but not target_date, ignore them (target_date takes precedence)
-        if auto_fetch:
-            input_df = load_merged_pricing_data(target_date, target_location)
-        else:
-            # Use a simpler load function that doesn't auto-fetch
-            input_df = load_merged_pricing_data_simple(target_date, target_location)
+        # Use DataLoaderService for consistent data loading
+        data_loader = DataLoaderService()
+        input_df = data_loader.load_merged_pricing_data(
+            target_date, target_location, auto_fetch
+        )
 
     if input_df.empty:
         return outputs
@@ -253,111 +254,6 @@ def run_pricing_pipeline(
             )
 
     return outputs
-
-
-def load_merged_pricing_data_simple(
-    target_date: str = None, target_location: str = None
-):
-    """
-    Simple version of load_merged_pricing_data that doesn't auto-fetch from Zoho.
-    Used when auto_fetch=False in run_pricing_pipeline.
-    """
-    from src.sqlite_storage import load_from_sqlite
-    from datetime import date, datetime, timedelta
-    import pandas as pd
-
-    # Use today's date if not specified
-    if target_date is None:
-        target_date = date.today().strftime("%Y-%m-%d")
-
-    # Parse target date to get year and month
-    target_datetime = datetime.strptime(target_date, "%Y-%m-%d")
-    target_year = target_datetime.year
-    target_month = target_datetime.month
-
-    # Calculate 3 months prior for expense averaging
-    three_months_ago = target_datetime - timedelta(days=90)
-    start_year = three_months_ago.year
-    start_month = three_months_ago.month
-
-    try:
-        # Load monthly expense data for the last 3 months
-        monthly_df = load_from_sqlite("pnl_sms_by_month")
-
-        # Filter to last 3 months
-        monthly_df = monthly_df[
-            ((monthly_df["year"] == target_year) & (monthly_df["month"] >= start_month))
-            | (
-                (monthly_df["year"] == start_year)
-                & (monthly_df["month"] >= start_month)
-            )
-        ]
-
-        # Filter by location if specified
-        if target_location:
-            monthly_df = monthly_df[
-                monthly_df["building_name"].str.lower() == target_location.lower()
-            ]
-
-        print(
-            f"Loaded {len(monthly_df)} rows from monthly expense data (last 3 months)."
-        )
-    except Exception as e:
-        print(f"Error loading monthly expense data: {e}")
-        monthly_df = pd.DataFrame()
-
-    try:
-        # Load daily occupancy data for last 7 days from target date
-        daily_df = load_from_sqlite("private_office_occupancies_by_building")
-
-        # Calculate date range for past 7 days (excluding target date)
-        seven_days_ago = target_datetime - timedelta(
-            days=7
-        )  # 7 days before target date (excluding target date)
-
-        # Generate list of dates for the past 7 days (excluding target date)
-        date_range = []
-        current_dt = seven_days_ago
-        while (
-            current_dt < target_datetime
-        ):  # Use < instead of <= to exclude target date
-            date_range.append(current_dt.strftime("%Y-%m-%d"))
-            current_dt += timedelta(days=1)
-
-        # Filter to last 7 days
-        if not daily_df.empty and "date" in daily_df.columns:
-            daily_df = daily_df[daily_df["date"].isin(date_range)]
-
-            # Filter by location if specified
-            if target_location:
-                daily_df = daily_df[
-                    daily_df["building_name"].str.lower() == target_location.lower()
-                ]
-
-            print(
-                f"Loaded {len(daily_df)} rows from daily occupancy data for past 7 days ({seven_days_ago.strftime('%Y-%m-%d')} to {(target_datetime - timedelta(days=1)).strftime('%Y-%m-%d')})."
-            )
-    except Exception as e:
-        print(f"Error loading daily occupancy data: {e}")
-        daily_df = pd.DataFrame()
-
-    # Merge the dataframes on building_name
-    if not monthly_df.empty and not daily_df.empty:
-        merged_df = pd.merge(
-            monthly_df,
-            daily_df,
-            on="building_name",
-            how="left",
-            suffixes=("_monthly", "_daily"),
-        )
-        print(f"Merged data contains {len(merged_df)} rows.")
-        return merged_df
-    elif not monthly_df.empty:
-        print("Using only monthly data (no daily occupancy data available).")
-        return monthly_df
-    else:
-        print("No data available from either table.")
-        return pd.DataFrame()
 
 
 def _get_occupancy_with_fallback(row):

@@ -24,14 +24,11 @@ def load_pricing_rules(config_path: str = CONFIG_PATH) -> Dict[str, Any]:
 
 
 def load_merged_pricing_data(target_date: str = None, target_location: str = None):
-    import pandas as pd
-    from datetime import date, datetime, timedelta
-
     """
     Load and merge data from both monthly expense data and daily occupancy data.
-    Optimized to load only necessary data:
-    - 3 months of expense data for averaging
-    - Daily occupancy data for specific location and date
+
+    This function is now a thin wrapper around DataLoaderService for backward compatibility.
+    Consider using DataLoaderService directly for new code.
 
     Args:
         target_date: Date in 'YYYY-MM-DD' format. If None, uses today's date.
@@ -40,131 +37,12 @@ def load_merged_pricing_data(target_date: str = None, target_location: str = Non
     Returns:
         DataFrame with merged data for pricing calculations.
     """
-    from src.sqlite_storage import load_from_sqlite
+    from src.data.loader import DataLoaderService
 
-    # Use today's date if not specified
-    if target_date is None:
-        target_date = date.today().strftime("%Y-%m-%d")
-
-    # Parse target date to get year and month
-    target_datetime = datetime.strptime(target_date, "%Y-%m-%d")
-    target_year = target_datetime.year
-    target_month = target_datetime.month
-
-    # Calculate 3 months prior for expense averaging
-    three_months_ago = target_datetime - timedelta(days=90)
-    start_year = three_months_ago.year
-    start_month = three_months_ago.month
-
-    try:
-        # Load monthly expense data for the last 3 months
-        monthly_df = load_from_sqlite("pnl_sms_by_month")
-
-        # Filter to last 3 months
-        monthly_df = monthly_df[
-            ((monthly_df["year"] == target_year) & (monthly_df["month"] >= start_month))
-            | (
-                (monthly_df["year"] == start_year)
-                & (monthly_df["month"] >= start_month)
-            )
-        ]
-
-        # Filter by location if specified
-        if target_location:
-            monthly_df = monthly_df[
-                monthly_df["building_name"].str.lower() == target_location.lower()
-            ]
-
-        print(
-            f"Loaded {len(monthly_df)} rows from monthly expense data (last 3 months)."
-        )
-    except Exception as e:
-        print(f"Error loading monthly expense data: {e}")
-        monthly_df = pd.DataFrame()
-
-    try:
-        # Load daily occupancy data for last 7 days from target date
-        daily_df = load_from_sqlite("private_office_occupancies_by_building")
-
-        # Calculate date range for past 7 days (excluding target date)
-        target_datetime = datetime.strptime(target_date, "%Y-%m-%d")
-        seven_days_ago = target_datetime - timedelta(
-            days=7
-        )  # 7 days before target date (excluding target date)
-
-        # Generate list of dates for the past 7 days (excluding target date)
-        date_range = []
-        current_dt = seven_days_ago
-        while (
-            current_dt < target_datetime
-        ):  # Use < instead of <= to exclude target date
-            date_range.append(current_dt.strftime("%Y-%m-%d"))
-            current_dt += timedelta(days=1)
-
-        # Filter to last 7 days
-        if not daily_df.empty and "date" in daily_df.columns:
-            daily_df = daily_df[daily_df["date"].isin(date_range)]
-
-            # Filter by location if specified
-            if target_location:
-                daily_df = daily_df[
-                    daily_df["building_name"].str.lower() == target_location.lower()
-                ]
-
-            print(
-                f"Loaded {len(daily_df)} rows from daily occupancy data for past 7 days ({seven_days_ago.strftime('%Y-%m-%d')} to {(target_datetime - timedelta(days=1)).strftime('%Y-%m-%d')})."
-            )
-
-            # Check if we have data for the target date, if not fetch from Zoho
-            target_date_data = daily_df[daily_df["date"] == target_date]
-            if target_date_data.empty:
-                print(
-                    f"No daily occupancy data found for {target_date}. Fetching from Zoho Analytics..."
-                )
-                try:
-                    from src.zoho_integration import (
-                        upsert_private_office_occupancies_by_building,
-                    )
-
-                    upsert_private_office_occupancies_by_building(target_date)
-                    print(
-                        f"Successfully fetched and saved daily occupancy data for {target_date}."
-                    )
-                    # Reload the filtered data after fetching
-                    daily_df = load_from_sqlite(
-                        "private_office_occupancies_by_building"
-                    )
-                    daily_df = daily_df[daily_df["date"].isin(date_range)]
-                    if target_location:
-                        daily_df = daily_df[
-                            daily_df["building_name"].str.lower()
-                            == target_location.lower()
-                        ]
-                    print(f"Reloaded {len(daily_df)} rows from daily occupancy data.")
-                except Exception as e:
-                    print(f"Error fetching daily occupancy data from Zoho: {e}")
-                    print("Continuing with available data...")
-    except Exception as e:
-        print(f"Error loading daily occupancy data: {e}")
-        daily_df = pd.DataFrame()
-
-    # Merge the dataframes on building_name
-    if not monthly_df.empty and not daily_df.empty:
-        merged_df = pd.merge(
-            monthly_df,
-            daily_df,
-            on="building_name",
-            how="left",
-            suffixes=("_monthly", "_daily"),
-        )
-        print(f"Merged data contains {len(merged_df)} rows.")
-        return merged_df
-    elif not monthly_df.empty:
-        print("Using only monthly data (no daily occupancy data available).")
-        return monthly_df
-    else:
-        print("No data available from either table.")
-        return pd.DataFrame()
+    data_loader = DataLoaderService()
+    return data_loader.load_merged_pricing_data(
+        target_date, target_location, auto_fetch=True
+    )
 
 
 # Sample usage (for demonstration/testing)
