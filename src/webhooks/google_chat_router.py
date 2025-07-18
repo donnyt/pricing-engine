@@ -18,12 +18,15 @@ class GoogleChatEvent(BaseModel):
 
 
 def parse_po_price_command(message_text: str) -> Tuple[str, Optional[str]]:
-    text = message_text.strip().lower()
-    if not text.startswith("/po-price"):
+    # Check if it's a po-price command (case-insensitive)
+    if not message_text.strip().lower().startswith("/po-price"):
         raise ValueError("Not a po-price command")
-    args_text = text[len("/po-price") :].strip()
+
+    # Extract args text while preserving original case
+    args_text = message_text.strip()[len("/po-price") :].strip()
     if not args_text:
         raise ValueError("Location is required. Usage: /po-price <location> [month]")
+
     parts = args_text.split()
     location_parts = (
         parts[:-1]

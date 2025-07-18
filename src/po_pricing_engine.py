@@ -90,7 +90,7 @@ if __name__ == "__main__":
                     row.get("avg_exp_total_po_expense_amount"), absolute=True
                 ),
                 po_seats_occupied_actual_pct=occupancy_pct,
-                po_seats_occupied_pct=parse_float(row.get("po_seats_occupied_pct")),
+                po_seats_occupied_pct=parse_pct(row.get("po_seats_occupied_pct")),
                 total_po_seats=total_po_seats,
             )
             pricing_result = calculator.calculate_pricing(location_data)

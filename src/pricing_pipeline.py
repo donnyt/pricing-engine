@@ -252,7 +252,7 @@ def run_pricing_pipeline(
             avg_exp_total_po_expense_amount=avg_exp,
             po_seats_occupied_actual_pct=occupancy_pct,
             po_seats_occupied_pct=(
-                parse_float(row.get("po_seats_occupied_pct"))
+                parse_pct(row.get("po_seats_occupied_pct"))
                 if row.get("po_seats_occupied_pct") not in [None, "None", ""]
                 else None
             ),
